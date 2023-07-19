@@ -1,0 +1,86 @@
+---
+title: "Vaccines"
+output: html_document
+---
+```{r}
+##############################################################################################################
+# Loading data, then mutating date variables and calculating timediff between vaccine and infection. >>
+# Vaccine names/brands should be levels, too. >>
+
+vacunas_raw <- vroom("/opt/datos_compartidos/vacunas_data/total/ENC_VACUNAS_VACUNAS_TODO.txt") %>%
+  as.data.frame() %>% 
+  distinct() %>%
+  arrange(NUHSA_ENCRIPTADO)
+
+vacunas_inprogress <- setDT(vacunas_raw) %>% 
+  lazy_dt(immutable = TRUE) %>% 
+  mutate(
+    NOM_VACUNA = as.factor(NOM_VACUNA),
+    FEC_VACUNACION = ymd(FEC_VACUNACION)
+  ) %>% 
+  filter(
+    NOM_VACUNA == "COVID-19 AstraZeneca"
+    | NOM_VACUNA == "COVID-19 Janssen"
+    | NOM_VACUNA == "COVID-19 Pfizer/BioNTech"
+    | NOM_VACUNA == "COVID-19 Moderna"
+    | NOM_VACUNA == "COVID-19 Novavax"
+  ) %>% 
+  left_join(infect_covid5, by = "NUHSA_ENCRIPTADO") %>% 
+  filter(!is.na(infect_covid_first_date)) %>% 
+  mutate(
+    vac_infecc_umbral = days(infect_covid_first_date - FEC_VACUNACION) / days(1),
+    NOM_VACUNA = droplevels(NOM_VACUNA)
+  ) %>% 
+  as.data.frame()
+
+# Assigning order to vaccine shots
+vacunas_wide <- vacunas_inprogress %>%
+  group_by(NUHSA_ENCRIPTADO) %>%
+  mutate(shot = paste0("shots_", row_number())) %>%
+  ungroup() %>%
+# Pivoting rows with vaccine names into columns
+  pivot_wider(
+    id_cols = c(NUHSA_ENCRIPTADO, orden_infeccion),
+    names_from = shot,
+    values_from = NOM_VACUNA
+  ) %>%
+  select(NUHSA_ENCRIPTADO:shots_3) %>%
+  arrange(NUHSA_ENCRIPTADO)
+
+# Filtering out vaccines received <14 days before infection. >>
+# Last, getting number of vaccines per infection.
+vacunas2 <- setDT(vacunas_inprogress) %>% 
+  lazy_dt(immutable = TRUE) %>% 
+  filter(vac_infecc_umbral >= 14) %>%
+  as.data.frame()
+
+vacunas3 <- setDT(vacunas2) %>% 
+  lazy_dt(immutable = TRUE) %>% 
+  group_by(NUHSA_ENCRIPTADO, orden_infeccion) %>%
+  mutate(fec_ultima_vac = max(FEC_VACUNACION)) %>% 
+  mutate(fec_ultima_inmun = max(fec_ultima_vac, unique(prev_infect_date), na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(
+    ultima_vac_infecc_dias = infect_covid_first_date - fec_ultima_vac,
+    ultima_inmun_infecc_dias = infect_covid_first_date - fec_ultima_inmun
+  ) %>%
+  mutate(
+    ultima_vac_infecc_meses_quant = days(ultima_vac_infecc_dias) / months(1),
+    ultima_inmun_infecc_meses_quant = days(ultima_inmun_infecc_dias) / months(1),
+  ) %>%
+  mutate(
+    ultima_vac_infecc_meses_quant2 = trunc(ultima_vac_infecc_meses_quant),
+    ultima_inmun_infecc_meses_quant2 = trunc(ultima_inmun_infecc_meses_quant),
+  ) %>% 
+  group_by(NUHSA_ENCRIPTADO, orden_infeccion) %>%
+  summarise(
+    n_vacunas_covid = n(),
+    n_prev_infecc = unique(orden_infeccion) - 1,
+    ultima_vac_infecc_meses_quant = unique(ultima_vac_infecc_meses_quant2),
+    ultima_inmun_infecc_meses_quant = unique(ultima_inmun_infecc_meses_quant2)
+  ) %>% 
+  ungroup() %>%
+  mutate(n_exposi = n_vacunas_covid + n_prev_infecc) %>% 
+  as.data.frame()
+
+```
