@@ -17,6 +17,8 @@ vacunas_raw <- vroom("/opt/datos_compartidos/vacunas_data/total/ENC_VACUNAS_VACU
 covid_vaccines <- c("Abdala", "AstraZeneca", "CanSinoBIO", "CoronaVac (Sinovac Biotech)", "Covaxin", "Covishield", "HIPRA", "Janssen", "Moderna", "Novavax", "Pfizer/BioNTech", "Sinopharm", "Soberana", "Sputnik V")
 eu_covid_vaccines <- c("AstraZeneca", "Janssen", "Moderna", "Novavax", "Pfizer/BioNTech")
 noneu_covid_vaccines <- c("Abdala", "CanSinoBIO", "CoronaVac (Sinovac Biotech)", "Covaxin", "Covishield", "HIPRA", "Sinopharm", "Soberana", "Sputnik V")
+eu_rna_vaccines <- c("Pfizer/BioNTech", "Moderna")
+eu_nonrna_vaccines <- c("AstraZeneca", "Janssen", "Novavax")
 
 
 vacunas_inprogress <- setDT(vacunas_raw) %>% 
@@ -75,49 +77,50 @@ vacunas3 <- setDT(vacunas2) %>%
 `%notin%` <- Negate(`%in%`)
 
 # Defining vaccine categories
-group_vaccines <- function(vaccines) {
-  if (all(vaccines %in% "Pfizer/BioNTech", na.rm = TRUE) & all(vaccines %notin% "Pfizer/BioNTech", na.rm = TRUE)) {
+grouping_vaccines <- function(vaccines) {
+  if (all(vaccines == "Pfizer/BioNTech", na.rm = TRUE)) {
     return("Only Pfizer/BioNTech")
-  } else if (all(vaccines %in% "Moderna", na.rm = TRUE) & all(vaccines %notin% "Moderna", na.rm = TRUE)) {
+  } else if (all(vaccines == "Moderna", na.rm = TRUE)) {
     return("Only Moderna")
-  } else if (all(vaccines %in% "AstraZeneca", na.rm = TRUE) & all(vaccines %notin% "AstraZeneca", na.rm = TRUE)) {
+  } else if (all(vaccines == "AstraZeneca", na.rm = TRUE)) {
     return("Only AstraZeneca")
-  } else if (all(vaccines %in% "Janssen", na.rm = TRUE) & all(vaccines %notin% "Janssen", na.rm = TRUE)) {
+  } else if (all(vaccines == "Janssen", na.rm = TRUE)) {
     return("Only Janssen")
-  } else if (all(vaccines %in% "Novavax", na.rm = TRUE) & all(vaccines %notin% "Novavax", na.rm = TRUE)) {
+  } else if (all(vaccines == "Novavax", na.rm = TRUE)) {
     return("Only Novavax")
-  } else if (all(vaccines %in% c("Pfizer/BioNTech", "Moderna"), na.rm = TRUE) & all(!vaccines %notin% c("Pfizer/BioNTech", "Moderna"), na.rm = TRUE)) {
+  } else if (length(unique(vaccines[vaccines %in% eu_rna_vaccines])) > 1) {
     return("Mix of EU RNA vaccines")
-  } else if (all(vaccines %in% c("AstraZeneca", "Jannsen", "Novavax"), na.rm = TRUE) & all(!vaccines %notin% c("AstraZeneca", "Jannsen", "Novavax"), na.rm = TRUE)) {
+  } else if (length(unique(vaccines[vaccines %in% eu_nonrna_vaccines])) > 1) {
     return("Mix of EU non-RNA vaccines")
-  } else if (any(vaccines %in% c("Pfizer/BioNTech", "Moderna"), na.rm = TRUE) & any(vaccines %in% c("AstraZeneca", "Jannsen", "Novavax"), na.rm = TRUE)) {
-    return("Mix of European RNA and non-RNA vaccines")
-  } else if (all(vaccines %in% "Abdala", na.rm = TRUE) & all(vaccines %notin% "Abdala", na.rm = TRUE)) {
+  } else if (any(vaccines %in% eu_rna_vaccines, na.rm = TRUE) & any(vaccines %in% eu_nonrna_vaccines, na.rm = TRUE)) {
+    return("Mix of EU RNA and non-RNA vaccines")
+  } else if (all(vaccines == "Abdala", na.rm = TRUE)) {
     return("Only Abdala")
-  } else if (all(vaccines %in% "CanSinoBIO", na.rm = TRUE) & all(vaccines %notin% "CanSinoBIO", na.rm = TRUE)) {
+  } else if (all(vaccines == "CanSinoBIO", na.rm = TRUE)) {
     return("Only CanSinoBIO")
-  } else if (all(vaccines %in% "CoronaVac (Sinovac Biotech)", na.rm = TRUE) & all(vaccines %notin% "CoronaVac (Sinovac Biotech)", na.rm = TRUE)) {
+  } else if (all(vaccines == "CoronaVac (Sinovac Biotech)", na.rm = TRUE)) {
     return("Only CoronaVac (Sinovac Biotech)")
-  } else if (all(vaccines %in% "Covaxin", na.rm = TRUE) & all(vaccines %notin% "Covaxin", na.rm = TRUE)) {
+  } else if (all(vaccines == "Covaxin", na.rm = TRUE)) {
     return("Only Covaxin")
-  } else if (all(vaccines %in% "Covishield", na.rm = TRUE) & all(vaccines %notin% "Covishield", na.rm = TRUE)) {
+  } else if (all(vaccines == "Covishield", na.rm = TRUE)) {
     return("Only Covishield")
-  } else if (all(vaccines %in% "HIPRA", na.rm = TRUE) & all(vaccines %notin% "HIPRA", na.rm = TRUE)) {
+  } else if (all(vaccines == "HIPRA", na.rm = TRUE)) {
     return("Only HIPRA")
-  } else if (all(vaccines %in% "Sinopharm", na.rm = TRUE) & all(vaccines %notin% "Sinopharm", na.rm = TRUE)) {
+  } else if (all(vaccines == "Sinopharm", na.rm = TRUE)) {
     return("Only Sinopharm")
-  } else if (all(vaccines %in% "Soberana", na.rm = TRUE) & all(vaccines %notin% "Soberana", na.rm = TRUE)) {
+  } else if (all(vaccines == "Soberana", na.rm = TRUE)) {
     return("Only Soberana")
-  } else if (all(vaccines %in% "Sputnik V", na.rm = TRUE) & all(vaccines %notin% "Sputnik V", na.rm = TRUE)) {
+  } else if (all(vaccines == "Sputnik V", na.rm = TRUE)) {
     return("Only Sputnik V")
-  } else if (any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE) & any(vaccines %in% c("Pfizer/BioNTech", "Moderna"), na.rm = TRUE)) {
+  } else if (any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE) & any(vaccines %in% eu_rna_vaccines, na.rm = TRUE)) {
     return("Non-European Vaccines + European RNA vaccines")
-  } else if (any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE) & any(vaccines %in% c("AstraZeneca", "Jannsen", "Novavax"), na.rm = TRUE)) {
+  } else if (any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE) & any(vaccines %in% eu_nonrna_vaccines, na.rm = TRUE)) {
     return("Non-European Vaccines + European non-RNA Vaccines")
   } else {
     return("Other")
   }
 }
+
 
 # Defining function to categorize european and non-european vaccines
 eu_and_noneu_vaccines <- function(vaccines) {
@@ -136,8 +139,14 @@ eu_and_noneu_vaccines <- function(vaccines) {
 # Agregar las variables de grupo de vacunas y vacunas europeas a la tabla vacunas3
 vacunas3 <- vacunas3 %>%
   rowwise() %>%
-  mutate(european_vaccines = eu_and_noneu_vaccines(c(shot_1, shot_2, shot_3))) %>%
-  select(NUHSA_ENCRIPTADO:shot_3, european_vaccines, n_prev_infecc:n_exposi) %>%
+  mutate(group_vaccines = grouping_vaccines(c(shot_1, shot_2, shot_3)),
+         european_vaccines = eu_and_noneu_vaccines(c(shot_1, shot_2, shot_3))) %>%
+  select(
+    NUHSA_ENCRIPTADO:shot_3,
+    group_vaccines,
+    european_vaccines,
+    n_prev_infecc:n_exposi
+  ) %>%
   arrange(NUHSA_ENCRIPTADO)
 
 
