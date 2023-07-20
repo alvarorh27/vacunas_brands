@@ -34,6 +34,8 @@ special_date <- function(number) {
 }
 
 convertir_valores <- function(x) {ifelse(x == -1, 0, 1)}
+
+`%notin%` <- Negate(`%in%`)
 ```
 
 # Data Loading and Wrangling
