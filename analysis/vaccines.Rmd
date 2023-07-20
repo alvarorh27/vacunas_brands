@@ -135,8 +135,9 @@ eu_and_noneu_vaccines <- function(vaccines) {
 
 # Agregar las variables de grupo de vacunas y vacunas europeas a la tabla vacunas3
 vacunas3 <- vacunas3 %>%
+  rowwise() %>%
   mutate(european_vaccines = eu_and_noneu_vaccines(c(shot_1, shot_2, shot_3))) %>%
-  select(NUHSA_ENCRIPTADO:shot_3, vaccine_group, european_vaccines, n_prev_infecc:n_exposi)
+  select(NUHSA_ENCRIPTADO:shot_3, european_vaccines, n_prev_infecc:n_exposi) %>%
   arrange(NUHSA_ENCRIPTADO)
 
 
