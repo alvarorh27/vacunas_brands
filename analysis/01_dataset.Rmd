@@ -792,19 +792,19 @@ eu_and_noneu_vaccines <- function(vaccines) {
   }
 }
 
-# Adding group_vaccines and european_vaccines 
+# Adding group_vaccines and location_vaccines 
 vacunas3 <- vacunas3 %>%
   rowwise() %>%
   mutate(group_vaccines = grouping_vaccines(c(shot_1, shot_2, shot_3)),
-         european_vaccines = eu_and_noneu_vaccines(c(shot_1, shot_2, shot_3))) %>%
+         location_vaccines = eu_and_noneu_vaccines(c(shot_1, shot_2, shot_3))) %>%
   mutate(
     group_vaccines = as.factor(group_vaccines),
-    european_vaccines = as.factor(european_vaccines)
+    location_vaccines = as.factor(location_vaccines)
   ) %>%
   select(
     NUHSA_ENCRIPTADO:shot_3,
     group_vaccines,
-    european_vaccines,
+    location_vaccines,
     n_prev_infecc:n_exposi
   ) %>%
   arrange(NUHSA_ENCRIPTADO)
@@ -961,9 +961,9 @@ estudio_vacunas_t_final_selected %<>%
       n_vacunas_covid == 0 ~ "Ninguna",
     )
   )) %>%
-  mutate(across(shot_1:european_vaccines, ~ if_else(is.na(.x), "None", .x))) %>%
-  mutate(across(shot_1:european_vaccines, ~ as.factor(.x))) %>%
-  mutate(across(shot_1:european_vaccines, ~ relevel(.x, ref = "None"))) %>%
+  mutate(across(shot_1:location_vaccines, ~ if_else(is.na(.x), "None", .x))) %>%
+  mutate(across(shot_1:location_vaccines, ~ as.factor(.x))) %>%
+  mutate(across(shot_1:location_vaccines, ~ relevel(.x, ref = "None"))) %>%
   mutate(
     n_vacunas_covid = relevel(n_vacunas_covid, ref = "Ninguna"),
     n_prev_infecc = as.factor(
