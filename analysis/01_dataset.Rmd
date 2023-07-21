@@ -668,31 +668,31 @@ Hay varias vacunas de neumo y gripe por paciente.
 # Vaccine names/brands should be levels, too. >>
 
 vacunas_raw <- vroom("/opt/datos_compartidos/vacunas_data/total/ENC_VACUNAS_VACUNAS_TODO.txt") %>%
+  mutate(NOM_VACUNA = gsub("COVID-19 ", "", NOM_VACUNA)) %>%
   as.data.frame() %>% 
   distinct()
 
+# Creating vaccine vectors
+
+covid_vaccines <- c("Abdala", "AstraZeneca", "CanSinoBIO", "CoronaVac (Sinovac Biotech)", "Covaxin", "Covishield", "HIPRA", "Janssen", "Moderna", "Novavax", "Pfizer/BioNTech", "Sinopharm", "Soberana", "Sputnik V")
+eu_covid_vaccines <- c("AstraZeneca", "Janssen", "Moderna", "Novavax", "Pfizer/BioNTech")
+noneu_covid_vaccines <- c("Abdala", "CanSinoBIO", "CoronaVac (Sinovac Biotech)", "Covaxin", "Covishield", "HIPRA", "Sinopharm", "Soberana", "Sputnik V")
+eu_rna_vaccines <- c("Pfizer/BioNTech", "Moderna")
+eu_nonrna_vaccines <- c("AstraZeneca", "Janssen", "Novavax")
+
+
 vacunas_inprogress <- setDT(vacunas_raw) %>% 
   lazy_dt(immutable = TRUE) %>% 
-  mutate(
-    NOM_VACUNA = as.factor(NOM_VACUNA),
-    FEC_VACUNACION = ymd(FEC_VACUNACION)
-  ) %>% 
-  filter(
-    NOM_VACUNA == "COVID-19 AstraZeneca"
-    | NOM_VACUNA == "COVID-19 Janssen"
-    | NOM_VACUNA == "COVID-19 Pfizer/BioNTech"
-    | NOM_VACUNA == "COVID-19 Moderna"
-    | NOM_VACUNA == "COVID-19 Novavax"
-  ) %>% 
-  left_join(infect_covid5, by = "NUHSA_ENCRIPTADO") %>% 
+  filter(NOM_VACUNA %in% covid_vaccines) %>% 
+  mutate(NOM_VACUNA = as.factor(NOM_VACUNA), 
+         FEC_VACUNACION = ymd(FEC_VACUNACION)) %>% 
+    left_join(infect_covid5, by = "NUHSA_ENCRIPTADO") %>% 
   filter(!is.na(infect_covid_first_date)) %>% 
   mutate(
     vac_infecc_umbral = days(infect_covid_first_date - FEC_VACUNACION) / days(1),
     NOM_VACUNA = droplevels(NOM_VACUNA)
   ) %>% 
   as.data.frame()
-
-
 
 # Filtering out vaccines received <14 days before infection. >>
 # Last, getting number of vaccines per infection.
@@ -722,15 +722,92 @@ vacunas3 <- setDT(vacunas2) %>%
   group_by(NUHSA_ENCRIPTADO, orden_infeccion) %>%
   summarise(
     n_vacunas_covid = n(),
+    all_vaccines = paste(NOM_VACUNA, collapse = ", "),
     n_prev_infecc = unique(orden_infeccion) - 1,
     ultima_vac_infecc_meses_quant = unique(ultima_vac_infecc_meses_quant2),
     ultima_inmun_infecc_meses_quant = unique(ultima_inmun_infecc_meses_quant2)
   ) %>% 
   ungroup() %>%
+  separate(all_vaccines, into = paste0("shot_", 1:5), sep = ", ", extra = "drop", fill = "right") %>%
   mutate(n_exposi = n_vacunas_covid + n_prev_infecc) %>% 
+  select(NUHSA_ENCRIPTADO, orden_infeccion, n_prev_infecc, n_vacunas_covid, shot_1:shot_3, ultima_vac_infecc_meses_quant, ultima_inmun_infecc_meses_quant, n_exposi) %>%
   as.data.frame()
 
+# Defining vaccine categories
+grouping_vaccines <- function(vaccines) {
+  if (all(vaccines == "Pfizer/BioNTech", na.rm = TRUE)) {
+    return("Pfizer/BioNTech")
+  } else if (all(vaccines == "Moderna", na.rm = TRUE)) {
+    return("Moderna")
+  } else if (all(vaccines == "AstraZeneca", na.rm = TRUE)) {
+    return("AstraZeneca")
+  } else if (all(vaccines == "Janssen", na.rm = TRUE)) {
+    return("Janssen")
+  } else if (all(vaccines == "Novavax", na.rm = TRUE)) {
+    return("Novavax")
+  } else if (length(unique(vaccines[vaccines %in% eu_rna_vaccines])) > 1) {
+    return("Mix of EU RNA vaccines")
+  } else if (length(unique(vaccines[vaccines %in% eu_nonrna_vaccines])) > 1) {
+    return("Mix of EU non-RNA vaccines")
+  } else if (any(vaccines %in% eu_rna_vaccines, na.rm = TRUE) & any(vaccines %in% eu_nonrna_vaccines, na.rm = TRUE)) {
+    return("Mix of EU RNA and non-RNA vaccines")
+  } else if (all(vaccines == "Abdala", na.rm = TRUE)) {
+    return("Abdala")
+  } else if (all(vaccines == "CanSinoBIO", na.rm = TRUE)) {
+    return("CanSinoBIO")
+  } else if (all(vaccines == "CoronaVac (Sinovac Biotech)", na.rm = TRUE)) {
+    return("CoronaVac (Sinovac Biotech)")
+  } else if (all(vaccines == "Covaxin", na.rm = TRUE)) {
+    return("Covaxin")
+  } else if (all(vaccines == "Covishield", na.rm = TRUE)) {
+    return("Covishield")
+  } else if (all(vaccines == "HIPRA", na.rm = TRUE)) {
+    return("HIPRA")
+  } else if (all(vaccines == "Sinopharm", na.rm = TRUE)) {
+    return("Sinopharm")
+  } else if (all(vaccines == "Soberana", na.rm = TRUE)) {
+    return("Soberana")
+  } else if (all(vaccines == "Sputnik V", na.rm = TRUE)) {
+    return("Sputnik V")
+  } else if (any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE) & any(vaccines %in% eu_rna_vaccines, na.rm = TRUE)) {
+    return("EU RNA vaccines + non-EU Vaccines")
+  } else if (any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE) & any(vaccines %in% eu_nonrna_vaccines, na.rm = TRUE)) {
+    return("EU non-RNA Vaccines + non-EU Vaccines")
+  } else {
+    return("Other")
+  }
+}
 
+# Defining function to categorize european and non-european vaccines
+eu_and_noneu_vaccines <- function(vaccines) {
+  if (any(vaccines %in% eu_covid_vaccines, na.rm = TRUE) &
+      !any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE)) {
+    return("EU Vaccines")
+  } else if (any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE) &
+             !any(vaccines %in% eu_covid_vaccines, na.rm = TRUE)) {
+    return("Non-EU Vaccines")
+  }
+  else {
+    return("EU and non-EU Vaccines")
+  }
+}
+
+# Adding group_vaccines and european_vaccines 
+vacunas3 <- vacunas3 %>%
+  rowwise() %>%
+  mutate(group_vaccines = grouping_vaccines(c(shot_1, shot_2, shot_3)),
+         european_vaccines = eu_and_noneu_vaccines(c(shot_1, shot_2, shot_3))) %>%
+  mutate(
+    group_vaccines = as.factor(group_vaccines),
+    european_vaccines = as.factor(european_vaccines)
+  ) %>%
+  select(
+    NUHSA_ENCRIPTADO:shot_3,
+    group_vaccines,
+    european_vaccines,
+    n_prev_infecc:n_exposi
+  ) %>%
+  arrange(NUHSA_ENCRIPTADO)
 
 remove(vacunas_raw)
 remove(vacunas_inprogress)
@@ -748,7 +825,10 @@ gc()
 infect_covid5 <- readRDS("/opt/datos_compartidos/vacunas_data/Rfiles/infect_covid5.rds")
 poblacion_diana3 <- readRDS("/opt/datos_compartidos/vacunas_data/Rfiles/poblacion_diana3.rds")
 pupa2 <- readRDS("/opt/datos_compartidos/vacunas_data/Rfiles/pupa2b.rds")
-vacunas3 <- readRDS("/opt/datos_compartidos/vacunas_data/Rfiles/vacunas3.rds")
+saveRDS(
+  vacunas3, 
+  file = "~/projects/vacunas_brands/data/vacunas3.rds"
+)
 
 infect_bdu_pupa <- setDT(infect_covid5) %>% 
   lazy_dt() %>% 
@@ -818,7 +898,6 @@ remove(infect_covid5)
 remove(poblacion_diana3)
 remove(pupa2)
 remove(episodios_cmbd)
-remove(vacunas3)
 remove(infect_bdu_pupa)
 remove(infect_bdu_pupa_cmbd)
 remove(infect_bdu_pupa_cmbd_vacunas)
@@ -874,26 +953,37 @@ estudio_vacunas_t_final_selected %<>%
 
 
 estudio_vacunas_t_final_selected %<>%
-  mutate(
-    n_vacunas_covid = as.factor(case_when(
+  mutate(n_vacunas_covid = as.factor(
+    case_when(
       n_vacunas_covid == 3 ~ "Tres",
       n_vacunas_covid == 2 ~ "Dos",
       n_vacunas_covid == 1 ~ "Una",
       n_vacunas_covid == 0 ~ "Ninguna",
-    )),
+    )
+  )) %>%
+  mutate(across(shot_1:european_vaccines, ~ if_else(is.na(.x), "None", .x))) %>%
+  mutate(across(shot_1:european_vaccines, ~ as.factor(.x))) %>%
+  mutate(across(shot_1:european_vaccines, ~ relevel(.x, ref = "None"))) %>%
+  mutate(
     n_vacunas_covid = relevel(n_vacunas_covid, ref = "Ninguna"),
-    n_prev_infecc = as.factor(case_when(
-      n_prev_infecc == 2 ~ "Dos", n_prev_infecc == 1 ~ "Uno", n_prev_infecc == 0 ~ "Ninguna"
-    )),
+    n_prev_infecc = as.factor(
+      case_when(
+        n_prev_infecc == 2 ~ "Dos",
+        n_prev_infecc == 1 ~ "Uno",
+        n_prev_infecc == 0 ~ "Ninguna"
+      )
+    ),
     n_prev_infecc = relevel(n_prev_infecc, ref = "Ninguna"),
-    n_exposi = as.factor(case_when(
-      n_exposi == 5 ~ "Cinco",
-      n_exposi == 4 ~ "Cuatro",
-      n_exposi == 3 ~ "Tres",
-      n_exposi == 2 ~ "Dos",
-      n_exposi == 1 ~ "Una",
-      n_exposi == 0 ~ "Ninguna",
-    )),
+    n_exposi = as.factor(
+      case_when(
+        n_exposi == 5 ~ "Cinco",
+        n_exposi == 4 ~ "Cuatro",
+        n_exposi == 3 ~ "Tres",
+        n_exposi == 2 ~ "Dos",
+        n_exposi == 1 ~ "Una",
+        n_exposi == 0 ~ "Ninguna",
+      )
+    ),
     n_exposi = relevel(n_exposi, ref = "Ninguna"),
     orden_infeccion = as.factor(paste0(orden_infeccion, "ª infección")),
     orden_infeccion = relevel(orden_infeccion, ref = "1ª infección"),
@@ -1386,12 +1476,12 @@ estudio_vacunas_t_final_selected$ultima_inmun_infecc_bin <- factor(
 ```{r}
 saveRDS(
   estudio_vacunas_t_final_selected, 
-  file = "/opt/datos_compartidos/vacunas_data/Rfiles/estudio_vacunas_t_final_selected_manuscript.rds"
+  file = "~/projects/vacunas_brands/data/estudio_vacunasbrands_t_final_selected_manuscript.rds"
 )
 
 saveRDS(
   variants_week_spain_labels,
-  file = "/opt/datos_compartidos/vacunas_data/Rfiles/variants_week_spain_labels.rds",
+  file = "~/projects/vacunas_brands/data/variants_week_spain_labels.rds",
 )
 ```
 
