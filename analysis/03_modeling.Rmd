@@ -1,0 +1,362 @@
+---
+title: "03_modeling"
+# output: html_document
+---
+
+# Environment
+
+```{r}
+library(skimr)
+library(mgcv)
+library(parallel)
+library(parglm)
+library(pROC)
+library(ggplot2)
+library(tibble)
+library(dplyr)
+library(feather)
+library(broom)
+library(htmlTable)
+library(caret)
+
+extract_coef_pval_OR <- function(model) {
+  
+  as.data.frame(tibble(term = names(model$coefficients),
+                       estimate = model$coefficients,
+                       std.error = sqrt(diag(vcov(model))),
+                       statistic = model$coefficients / sqrt(diag(vcov(model))),
+                       p.value = 2 * (1 - pnorm(abs(statistic))),
+                       OR = round(exp(estimate),2),
+                       OR_CI_lower = round(exp(estimate - 1.96 * std.error),2),
+                       OR_CI_upper = round(exp(estimate + 1.96 * std.error),2)
+  )
+  )
+} 
+```
+
+#Load File
+
+```{r}
+final_dataset <- (
+  readRDS(
+    "~/projects/vacunas_brands/data/estudio_vacunasbrands_t_final_selected_manuscript.rds"
+  )
+)
+```
+
+# Logistic Regression of Hospital Admission
+
+## Fitting the model
+
+```{r}
+print('Logistic Regression of Hospital Admission')
+print(Sys.time())
+logreg_hadm <- glm(
+   hosp_stay_bin ~  age + desc_sexo + variant_period + 
+      asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + 
+      hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + 
+      cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + n_vacunas_covid + group_vaccines + european_vaccines,
+  data =  final_dataset,
+  family=binomial())
+print(Sys.time())
+```
+
+## Odds ratio
+
+```{r fig.height=16, fig.width=10}
+coef_pval_df_hadm_1 <- extract_coef_pval_OR(logreg_hadm)
+
+write.csv(coef_pval_df_hadm_1,'~/projects/vacunas_brands/data/oddsratio_hadm.csv')
+htmlTable(coef_pval_df_hadm_1[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "Odds Ratio for Hospital Admission")
+```
+
+## Forest Plot
+
+```{r}
+coef_pval_df_hadm_2<- coef_pval_df_hadm_1  %>% 
+  mutate(orden = case_when(term == "age" ~ 1,
+                           term == "genderM" ~ 2,
+                           term == "hospital_stay_days" ~ 3,
+                           term == "icu_stay_days" ~ 4,
+                           term == "tbi_seq1" ~ 5,
+                           term == "tbi_severe_seq1" ~ 6,
+                           term == "anytrauma_seq1" ~ 7,
+                           term == "tbi_anyseq" ~ 8,
+                           term == "tbi_severe_anyseq" ~ 9,
+                           term == "anytrauma_anyseq" ~ 10,
+                           term == "consecutive_vm_days" ~ 11,
+                           term == "mv_consecutive_7days" ~ 12,
+                           term == "mv_consecutive_14days" ~ 13,
+                           term == "mv_consecutive_21days" ~ 14,
+                           term == "total_vm_days" ~ 15,
+                           term == "mv_total_7days" ~ 16,
+                           term == "mv_total_14days" ~ 17,
+                           term == "mv_total_21days" ~ 18,
+                           term == "mv_96traq" ~ 19,
+                           term == "prolonged_mec_vent" ~ 20,
+                           term == "apsiii" ~ 21,
+                           term == "apsiii_prob" ~ 22,
+                           term == "sapsii" ~ 23,
+                           term == "sapsii_prob" ~ 24,
+                           term == "gcs_min" ~ 25,
+                           term == "(Intercept)" ~ 26,
+                           TRUE ~ 999),
+         term = case_when(term == "age" ~ "Age (years)",
+                           term == "genderM" ~ "Gender (male)",
+                           term == "hospital_stay_days" ~ "Lengh of hospital stay (days)",
+                           term == "icu_stay_days" ~ "Lenght of ICU stay (days)",
+                           term == "tbi_seq1" ~ "TBI as first diagnostics",
+                           term == "tbi_severe_seq1" ~ "Severe TBI as first diagnostics",
+                           term == "anytrauma_seq1" ~ "Traumatism as first diagnostics",
+                           term == "tbi_anyseq" ~ "TBI as any diagnostic order",
+                           term == "tbi_severe_anyseq" ~ "Severe TBI as any diagnostics",
+                           term == "anytrauma_anyseq" ~ "Traumatism as any diagnostic order",
+                           term == "consecutive_vm_days" ~ "Consecutive days with >6 hour ventilation",
+                           term == "mv_consecutive_7days" ~ "PMV > consecutive 7 days",
+                           term == "mv_consecutive_14days" ~ "PMV > consecutive 14 days",
+                           term == "mv_consecutive_21days" ~ "PMV > consecutive 21 days",
+                           term == "total_vm_days" ~ "Total days with >6 hour ventilation",
+                           term == "mv_total_7days" ~ "PMV > 7 days in total",
+                           term == "mv_total_14days" ~ "PMV > 14 days in total",
+                           term == "mv_total_21days" ~ "PMV > 21 days in total",
+                           term == "mv_96traq" ~ "MV for 96h + traqueostomy",
+                           term == "prolonged_mec_vent" ~ "PMV - Prolonged Mechanical Ventilation",
+                           term == "apsiii" ~ "APSIII",
+                           term == "apsiii_prob" ~ "APSIII probability",
+                           term == "sapsii" ~ "SAPSII",
+                           term == "sapsii_prob" ~ "SAPSII probability",
+                           term == "gcs_min" ~ "GCS",
+                           TRUE ~ term)) %>% 
+  arrange(desc(orden)) %>% 
+  select(-orden) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(term = factor(term, levels = term, ordered = TRUE))
+
+ggplot(coef_pval_df_hadm_2, 
+       aes(x=term, y=OR, ymin=OR_CI_lower, ymax=OR_CI_upper)) +
+  geom_hline(yintercept=1, colour = "blue", linewidth=0.8, linetype="dotted") +
+  geom_pointrange(alpha=0.7, shape=15) +
+  geom_vline(xintercept=0, linewidth=1.2) +
+  scale_x_discrete(expand = expansion(add = c(1, 0.8))) + 
+  scale_y_continuous(expand = expansion(add = c(0.1, 0.1))) +
+  scale_y_log10(limits = c(0.01, 22)) +
+  coord_flip() +
+  labs(y="Odds Ratio", x=NULL) +
+  ggtitle('Hospital admission') +
+  theme_minimal() +
+  theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
+
+
+# Save the plot as a PNG file
+ggsave("~/projects/vacunas_brands/figures/fp_hadm.png", width = 6, height = 4, dpi = 300)
+```
+
+# Logistic Regression of ICU Admission
+
+## Fitting the model
+
+```{r}
+print('Logistic Regression of Hospital Admission')
+print(Sys.time())
+logreg_icuadm <- glm(
+   icu_stay_bin ~  group_vaccines + european_vaccines,
+  data =  final_dataset,
+  family=binomial())
+print(Sys.time())
+```
+
+## Odds ratio
+
+```{r fig.height=16, fig.width=10}
+coef_pval_df_icuadm_1 <- extract_coef_pval_OR(logreg_icuadm)
+
+write.csv(coef_pval_df_icuadm_1,'~/projects/vacunas_brands/data/oddsratio_icuadm.csv')
+htmlTable(coef_pval_df_icuadm_1[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "Odds Ratio for ICU Admission")
+```
+
+## Forest Plot
+
+```{r}
+coef_pval_df_icuadm_2<- coef_pval_df_icuadm_1  %>% 
+  mutate(orden = case_when(term == "age" ~ 1,
+                           term == "genderM" ~ 2,
+                           term == "hospital_stay_days" ~ 3,
+                           term == "icu_stay_days" ~ 4,
+                           term == "tbi_seq1" ~ 5,
+                           term == "tbi_severe_seq1" ~ 6,
+                           term == "anytrauma_seq1" ~ 7,
+                           term == "tbi_anyseq" ~ 8,
+                           term == "tbi_severe_anyseq" ~ 9,
+                           term == "anytrauma_anyseq" ~ 10,
+                           term == "consecutive_vm_days" ~ 11,
+                           term == "mv_consecutive_7days" ~ 12,
+                           term == "mv_consecutive_14days" ~ 13,
+                           term == "mv_consecutive_21days" ~ 14,
+                           term == "total_vm_days" ~ 15,
+                           term == "mv_total_7days" ~ 16,
+                           term == "mv_total_14days" ~ 17,
+                           term == "mv_total_21days" ~ 18,
+                           term == "mv_96traq" ~ 19,
+                           term == "prolonged_mec_vent" ~ 20,
+                           term == "apsiii" ~ 21,
+                           term == "apsiii_prob" ~ 22,
+                           term == "sapsii" ~ 23,
+                           term == "sapsii_prob" ~ 24,
+                           term == "gcs_min" ~ 25,
+                           term == "(Intercept)" ~ 26,
+                           TRUE ~ 999),
+         term = case_when(term == "age" ~ "Age (years)",
+                           term == "genderM" ~ "Gender (male)",
+                           term == "hospital_stay_days" ~ "Lengh of hospital stay (days)",
+                           term == "icu_stay_days" ~ "Lenght of ICU stay (days)",
+                           term == "tbi_seq1" ~ "TBI as first diagnostics",
+                           term == "tbi_severe_seq1" ~ "Severe TBI as first diagnostics",
+                           term == "anytrauma_seq1" ~ "Traumatism as first diagnostics",
+                           term == "tbi_anyseq" ~ "TBI as any diagnostic order",
+                           term == "tbi_severe_anyseq" ~ "Severe TBI as any diagnostics",
+                           term == "anytrauma_anyseq" ~ "Traumatism as any diagnostic order",
+                           term == "consecutive_vm_days" ~ "Consecutive days with >6 hour ventilation",
+                           term == "mv_consecutive_7days" ~ "PMV > consecutive 7 days",
+                           term == "mv_consecutive_14days" ~ "PMV > consecutive 14 days",
+                           term == "mv_consecutive_21days" ~ "PMV > consecutive 21 days",
+                           term == "total_vm_days" ~ "Total days with >6 hour ventilation",
+                           term == "mv_total_7days" ~ "PMV > 7 days in total",
+                           term == "mv_total_14days" ~ "PMV > 14 days in total",
+                           term == "mv_total_21days" ~ "PMV > 21 days in total",
+                           term == "mv_96traq" ~ "MV for 96h + traqueostomy",
+                           term == "prolonged_mec_vent" ~ "PMV - Prolonged Mechanical Ventilation",
+                           term == "apsiii" ~ "APSIII",
+                           term == "apsiii_prob" ~ "APSIII probability",
+                           term == "sapsii" ~ "SAPSII",
+                           term == "sapsii_prob" ~ "SAPSII probability",
+                           term == "gcs_min" ~ "GCS",
+                           TRUE ~ term)) %>% 
+  arrange(desc(orden)) %>% 
+  select(-orden) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(term = factor(term, levels = term, ordered = TRUE))
+
+ggplot(coef_pval_df_icuadm_2, 
+       aes(x=term, y=OR, ymin=OR_CI_lower, ymax=OR_CI_upper)) +
+  geom_hline(yintercept=1, colour = "blue", linewidth=0.8, linetype="dotted") +
+  geom_pointrange(alpha=0.7, shape=15) +
+  geom_vline(xintercept=0, linewidth=1.2) +
+  scale_x_discrete(expand = expansion(add = c(1, 0.8))) + 
+  scale_y_continuous(expand = expansion(add = c(0.1, 0.1))) +
+  scale_y_log10(limits = c(0.01, 22)) +
+  coord_flip() +
+  labs(y="Odds Ratio", x=NULL) +
+  ggtitle('ICU admission') +
+  theme_minimal() +
+  theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
+
+
+# Save the plot as a PNG file
+ggsave("~/projects/vacunas_brands/figures/fp_icuadm.png", width = 6, height = 4, dpi = 300)
+```
+
+# Logistic Regression of Mortality at 30 days by COVID-19
+
+## Fitting the model
+
+```{r}
+print('Logistic Regression of Mortality at 30 days by COVID-19')
+print(Sys.time())
+logreg_death <- glm(
+   mortality30d ~  group_vaccines + european_vaccines,
+  data =  final_dataset,
+  family=binomial())
+print(Sys.time())
+```
+
+## Odds ratio
+
+```{r fig.height=16, fig.width=10}
+coef_pval_df_death_1 <- extract_coef_pval_OR(logreg_death)
+
+write.csv(coef_pval_df_death_1,'~/projects/vacunas_brands/data/oddsratio_death.csv')
+htmlTable(coef_pval_df_death_1[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "Odds Ratio for Mortality at 30 days by COVID-19")
+```
+
+## Forest Plot
+
+```{r}
+coef_pval_df_death_2<- coef_pval_df_death_1  %>% 
+  mutate(orden = case_when(term == "age" ~ 1,
+                           term == "genderM" ~ 2,
+                           term == "hospital_stay_days" ~ 3,
+                           term == "icu_stay_days" ~ 4,
+                           term == "tbi_seq1" ~ 5,
+                           term == "tbi_severe_seq1" ~ 6,
+                           term == "anytrauma_seq1" ~ 7,
+                           term == "tbi_anyseq" ~ 8,
+                           term == "tbi_severe_anyseq" ~ 9,
+                           term == "anytrauma_anyseq" ~ 10,
+                           term == "consecutive_vm_days" ~ 11,
+                           term == "mv_consecutive_7days" ~ 12,
+                           term == "mv_consecutive_14days" ~ 13,
+                           term == "mv_consecutive_21days" ~ 14,
+                           term == "total_vm_days" ~ 15,
+                           term == "mv_total_7days" ~ 16,
+                           term == "mv_total_14days" ~ 17,
+                           term == "mv_total_21days" ~ 18,
+                           term == "mv_96traq" ~ 19,
+                           term == "prolonged_mec_vent" ~ 20,
+                           term == "apsiii" ~ 21,
+                           term == "apsiii_prob" ~ 22,
+                           term == "sapsii" ~ 23,
+                           term == "sapsii_prob" ~ 24,
+                           term == "gcs_min" ~ 25,
+                           term == "(Intercept)" ~ 26,
+                           TRUE ~ 999),
+         term = case_when(term == "age" ~ "Age (years)",
+                           term == "genderM" ~ "Gender (male)",
+                           term == "hospital_stay_days" ~ "Lengh of hospital stay (days)",
+                           term == "icu_stay_days" ~ "Lenght of ICU stay (days)",
+                           term == "tbi_seq1" ~ "TBI as first diagnostics",
+                           term == "tbi_severe_seq1" ~ "Severe TBI as first diagnostics",
+                           term == "anytrauma_seq1" ~ "Traumatism as first diagnostics",
+                           term == "tbi_anyseq" ~ "TBI as any diagnostic order",
+                           term == "tbi_severe_anyseq" ~ "Severe TBI as any diagnostics",
+                           term == "anytrauma_anyseq" ~ "Traumatism as any diagnostic order",
+                           term == "consecutive_vm_days" ~ "Consecutive days with >6 hour ventilation",
+                           term == "mv_consecutive_7days" ~ "PMV > consecutive 7 days",
+                           term == "mv_consecutive_14days" ~ "PMV > consecutive 14 days",
+                           term == "mv_consecutive_21days" ~ "PMV > consecutive 21 days",
+                           term == "total_vm_days" ~ "Total days with >6 hour ventilation",
+                           term == "mv_total_7days" ~ "PMV > 7 days in total",
+                           term == "mv_total_14days" ~ "PMV > 14 days in total",
+                           term == "mv_total_21days" ~ "PMV > 21 days in total",
+                           term == "mv_96traq" ~ "MV for 96h + traqueostomy",
+                           term == "prolonged_mec_vent" ~ "PMV - Prolonged Mechanical Ventilation",
+                           term == "apsiii" ~ "APSIII",
+                           term == "apsiii_prob" ~ "APSIII probability",
+                           term == "sapsii" ~ "SAPSII",
+                           term == "sapsii_prob" ~ "SAPSII probability",
+                           term == "gcs_min" ~ "GCS",
+                           TRUE ~ term)) %>% 
+  arrange(desc(orden)) %>% 
+  select(-orden) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(term = factor(term, levels = term, ordered = TRUE))
+
+ggplot(coef_pval_df_death_2, 
+       aes(x=term, y=OR, ymin=OR_CI_lower, ymax=OR_CI_upper)) +
+  geom_hline(yintercept=1, colour = "blue", linewidth=0.8, linetype="dotted") +
+  geom_pointrange(alpha=0.7, shape=15) +
+  geom_vline(xintercept=0, linewidth=1.2) +
+  scale_x_discrete(expand = expansion(add = c(1, 0.8))) + 
+  scale_y_continuous(expand = expansion(add = c(0.1, 0.1))) +
+  scale_y_log10(limits = c(0.01, 22)) +
+  coord_flip() +
+  labs(y="Odds Ratio", x=NULL) +
+  ggtitle('Mortality at 30 days by COVID-19') +
+  theme_minimal() +
+  theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
+
+
+# Save the plot as a PNG file
+ggsave("~/projects/vacunas_brands/figures/fp_death.png", width = 6, height = 4, dpi = 300)
+```
+
+

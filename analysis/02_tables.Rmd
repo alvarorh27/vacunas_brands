@@ -18,7 +18,7 @@ library(knitr)
 #Load File
 
 ```{r}
-estudio_vacunasbrands_t_final_selected_manuscript <- (
+final_dataset <- (
   readRDS(
     "~/projects/vacunas_brands/data/estudio_vacunasbrands_t_final_selected_manuscript.rds"
   )
@@ -32,7 +32,7 @@ estudio_vacunasbrands_t_final_selected_manuscript <- (
 vars_in_table1<-c('hosp_stay_bin', 'group_vaccines', 'european_vaccines') 
 
 # Creates a dataset with only selected variables using our original dataset and generates an empty list for storing categorical variables
-table1_dataset <- estudio_vacunasbrands_t_final_selected_manuscript[,vars_in_table1]
+table1_dataset <- final_dataset[,vars_in_table1]
 cat_variables <- rep(NA, length(vars_in_table1))
 
 # Detects whether a variable is categorical or not
@@ -79,7 +79,7 @@ table1_tbi<-print(CreateTableOne(vars = vars_in_table1, strata = stratifyby, fac
 vars_in_table1<-c('icu_stay_bin', 'group_vaccines', 'european_vaccines') 
 
 # Creates a dataset with only selected variables using our original dataset and generates an empty list for storing categorical variables
-table1_dataset <- estudio_vacunasbrands_t_final_selected_manuscript[,vars_in_table1]
+table1_dataset <- final_dataset[,vars_in_table1]
 cat_variables <- rep(NA, length(vars_in_table1))
 
 # Detects whether a variable is categorical or not
@@ -126,7 +126,7 @@ table1_tbi<-print(CreateTableOne(vars = vars_in_table1, strata = stratifyby, fac
 vars_in_table1<-c('mortality30d', 'group_vaccines', 'european_vaccines') 
 
 # Creates a dataset with only selected variables using our original dataset and generates an empty list for storing categorical variables
-table1_dataset <- estudio_vacunasbrands_t_final_selected_manuscript[,vars_in_table1]
+table1_dataset <- final_dataset[,vars_in_table1]
 cat_variables <- rep(NA, length(vars_in_table1))
 
 # Detects whether a variable is categorical or not
