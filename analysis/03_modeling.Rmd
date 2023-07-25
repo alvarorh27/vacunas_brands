@@ -355,7 +355,7 @@ ggsave("~/projects/vacunas_brands/figures/fp_death.png", width = 6, height = 4, 
 print('Logistic Regression of Hospital Admission')
 print(Sys.time())
 logreg_loc_hadm <- glm(
-   hosp_stay_bin ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + european_vaccines,
+   hosp_stay_bin ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + location_vaccines,
   data =  final_dataset,
   family=binomial())
 print(Sys.time())
@@ -412,9 +412,9 @@ coef_pval_df_loc_hadm_2 <- coef_pval_df_loc_hadm_1  %>%
       term == "vihSí" ~ "HIV+",
       term == "cancer_hematologicoSí" ~ "Haematologic cancer",
       term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
-      term == "european_vaccinesEU Vaccines" ~ "EU vaccines",
-      term == "european_vaccinesNon-EU Vaccines" ~ "non-EU vaccines",
-      term == "european_vaccinesEU and non-EU Vaccines" ~ "Mix of EU and non-EU vaccines",
+      term == "location_vaccinesEU Vaccines" ~ "EU vaccines",
+      term == "location_vaccinesNon-EU Vaccines" ~ "non-EU vaccines",
+      term == "location_vaccinesEU and non-EU Vaccines" ~ "Mix of EU and non-EU vaccines",
       TRUE ~ term
     ),
     term = factor(term, levels = variable_loc_order)
@@ -450,7 +450,7 @@ ggsave("~/projects/vacunas_brands/figures/fp_loc_hadm.png", width = 6, height = 
 print('Logistic Regression of Hospital Admission')
 print(Sys.time())
 logreg_loc_icuadm <- glm(
-   icu_stay_bin ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + european_vaccines,
+   icu_stay_bin ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + location_vaccines,
   data =  final_dataset,
   family=binomial())
 print(Sys.time())
@@ -497,9 +497,9 @@ coef_pval_df_loc_icuadm_2<- coef_pval_df_loc_icuadm_1  %>%
       term == "vihSí" ~ "HIV+",
       term == "cancer_hematologicoSí" ~ "Haematologic cancer",
       term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
-      term == "european_vaccinesEU Vaccines" ~ "EU vaccines",
-      term == "european_vaccinesNon-EU Vaccines" ~ "non-EU vaccines",
-      term == "european_vaccinesEU and non-EU Vaccines" ~ "Mix of EU and non-EU vaccines",
+      term == "location_vaccinesEU Vaccines" ~ "EU vaccines",
+      term == "location_vaccinesNon-EU Vaccines" ~ "non-EU vaccines",
+      term == "location_vaccinesEU and non-EU Vaccines" ~ "Mix of EU and non-EU vaccines",
       TRUE ~ term
     ),
     term = factor(term, levels = variable_loc_order)
@@ -533,7 +533,7 @@ ggsave("~/projects/vacunas_brands/figures/fp_loc_icuadm.png", width = 6, height 
 print('Logistic Regression of Mortality at 30 days by COVID-19')
 print(Sys.time())
 logreg_loc_death <- glm(
-   mortality30d ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + european_vaccines,
+   mortality30d ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + location_vaccines,
   data =  final_dataset,
   family=binomial())
 print(Sys.time())
@@ -580,9 +580,9 @@ coef_pval_df_loc_death_2<- coef_pval_df_loc_death_1  %>%
       term == "vihSí" ~ "HIV+",
       term == "cancer_hematologicoSí" ~ "Haematologic cancer",
       term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
-      term == "european_vaccinesEU Vaccines" ~ "EU vaccines",
-      term == "european_vaccinesNon-EU Vaccines" ~ "non-EU vaccines",
-      term == "european_vaccinesEU and non-EU Vaccines" ~ "Mix of EU and non-EU vaccines",
+      term == "location_vaccinesEU Vaccines" ~ "EU vaccines",
+      term == "location_vaccinesNon-EU Vaccines" ~ "non-EU vaccines",
+      term == "location_vaccinesEU and non-EU Vaccines" ~ "Mix of EU and non-EU vaccines",
       TRUE ~ term
     ),
     term = factor(term, levels = variable_loc_order)
