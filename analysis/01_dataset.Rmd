@@ -729,12 +729,13 @@ vacunas3 <- setDT(vacunas2) %>%
   ) %>% 
   ungroup() %>%
   separate(all_vaccines, into = paste0("shot_", 1:5), sep = ", ", extra = "drop", fill = "right") %>%
+  mutate(all_three_shots = as.factor(paste(shot_1, shot_2, shot_3, sep = ", "))) %>%
   mutate(n_exposi = n_vacunas_covid + n_prev_infecc) %>% 
-  select(NUHSA_ENCRIPTADO, orden_infeccion, n_prev_infecc, n_vacunas_covid, shot_1:shot_3, ultima_vac_infecc_meses_quant, ultima_inmun_infecc_meses_quant, n_exposi) %>%
+  select(NUHSA_ENCRIPTADO, orden_infeccion, n_prev_infecc, n_vacunas_covid, shot_1:shot_3, all_three_shots, ultima_vac_infecc_meses_quant, ultima_inmun_infecc_meses_quant, n_exposi) %>%
   as.data.frame()
 
-# Defining vaccine categories
-grouping_vaccines <- function(vaccines) {
+# Defining eu_vaccine categories. Group with european vaccines (single-branded shots)
+function_eu_vaccines <- function(vaccines) {
   if (all(vaccines == "Pfizer/BioNTech", na.rm = TRUE)) {
     return("Pfizer/BioNTech")
   } else if (all(vaccines == "Moderna", na.rm = TRUE)) {
@@ -745,69 +746,79 @@ grouping_vaccines <- function(vaccines) {
     return("Janssen")
   } else if (all(vaccines == "Novavax", na.rm = TRUE)) {
     return("Novavax")
-  } else if (length(unique(vaccines[vaccines %in% eu_rna_vaccines])) > 1) {
+  }
+  else {
+    return("Other")
+  }
+}
+
+# Defining rna_vaccine categories. Group with european RNA, non-RNA and mix of ARN and non-RNA vaccines
+function_rna_vaccines <- function(vaccines) {
+  if (length(unique(vaccines[vaccines %in% eu_rna_vaccines])) > 1) {
     return("Mix of EU RNA vaccines")
   } else if (length(unique(vaccines[vaccines %in% eu_nonrna_vaccines])) > 1) {
     return("Mix of EU non-RNA vaccines")
-  } else if (any(vaccines %in% eu_rna_vaccines, na.rm = TRUE) & any(vaccines %in% eu_nonrna_vaccines, na.rm = TRUE)) {
+  } else if (any(vaccines %in% eu_rna_vaccines, na.rm = TRUE) &
+             any(vaccines %in% eu_nonrna_vaccines, na.rm = TRUE)) {
     return("Mix of EU RNA and non-RNA vaccines")
-  } else if (all(vaccines == "Abdala", na.rm = TRUE)) {
-    return("Abdala")
-  } else if (all(vaccines == "CanSinoBIO", na.rm = TRUE)) {
-    return("CanSinoBIO")
-  } else if (all(vaccines == "CoronaVac (Sinovac Biotech)", na.rm = TRUE)) {
-    return("CoronaVac (Sinovac Biotech)")
-  } else if (all(vaccines == "Covaxin", na.rm = TRUE)) {
-    return("Covaxin")
-  } else if (all(vaccines == "Covishield", na.rm = TRUE)) {
-    return("Covishield")
-  } else if (all(vaccines == "HIPRA", na.rm = TRUE)) {
-    return("HIPRA")
-  } else if (all(vaccines == "Sinopharm", na.rm = TRUE)) {
-    return("Sinopharm")
-  } else if (all(vaccines == "Soberana", na.rm = TRUE)) {
-    return("Soberana")
-  } else if (all(vaccines == "Sputnik V", na.rm = TRUE)) {
-    return("Sputnik V")
-  } else if (any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE) & any(vaccines %in% eu_rna_vaccines, na.rm = TRUE)) {
-    return("EU RNA vaccines + non-EU Vaccines")
-  } else if (any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE) & any(vaccines %in% eu_nonrna_vaccines, na.rm = TRUE)) {
-    return("EU non-RNA Vaccines + non-EU Vaccines")
   } else {
     return("Other")
   }
 }
 
-# Defining function to categorize european and non-european vaccines
-eu_and_noneu_vaccines <- function(vaccines) {
-  if (any(vaccines %in% eu_covid_vaccines, na.rm = TRUE) &
-      !any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE)) {
-    return("EU Vaccines")
-  } else if (any(vaccines %in% noneu_covid_vaccines, na.rm = TRUE) &
-             !any(vaccines %in% eu_covid_vaccines, na.rm = TRUE)) {
-    return("Non-EU Vaccines")
-  }
-  else {
-    return("EU and non-EU Vaccines")
+# Defining combined_vaccines categories. 10 most common combinations (excluding combinations composed only of the same brand, as this appears in eu_vaccines variable)
+function_combined_vaccines <- function(vaccines) {
+  if (vaccines == "AstraZeneca, AstraZeneca, Moderna") {
+    return("AstraZeneca+AstraZeneca+Moderna")
+  } else if (vaccines == "AstraZeneca, AstraZeneca, Pfizer/BioNTech") {
+    return("AstraZeneca+AstraZeneca+Pfizer/BioNTech")
+  } else if (vaccines == "Pfizer/BioNTech, Pfizer/BioNTech, Moderna") {
+    return("Pfizer/BioNTech+Pfizer/BioNTech+Moderna")
+  } else if (vaccines == "Janssen, Pfizer/BioNTech, NA") {
+    return("Janssen+Pfizer/BioNTech")
+  } else if (vaccines == "Moderna, Moderna, Pfizer/BioNTech") {
+    return("Moderna+Moderna+Pfizer/BioNTech")
+  } else if (vaccines == "Janssen, Moderna, NA") {
+    return("Janssen+Moderna")
+  } else if (vaccines == "AstraZeneca, Pfizer/BioNTech, NA") {
+    return("AstraZeneca+Pfizer/BioNTech")
+  } else if (vaccines == "Pfizer/BioNTech, Moderna, NA") {
+    return("Pfizer/BioNTech+Moderna")
+  } else if (vaccines == "Moderna, Pfizer/BioNTech, NA") {
+    return("Moderna+Pfizer/BioNTech")
+  } else if (vaccines == "AstraZeneca, Pfizer/BioNTech, Pfizer/BioNTech") {
+    return("AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech")
+  } else {
+    return("Other")
   }
 }
 
-# Adding group_vaccines and location_vaccines 
+
+# Adding eu_vaccines and rna_vaccines 
 vacunas3 <- vacunas3 %>%
   rowwise() %>%
-  mutate(group_vaccines = grouping_vaccines(c(shot_1, shot_2, shot_3)),
-         location_vaccines = eu_and_noneu_vaccines(c(shot_1, shot_2, shot_3))) %>%
+  mutate(eu_vaccines = function_eu_vaccines(c(shot_1, shot_2, shot_3)),
+         rna_vaccines = function_rna_vaccines(c(shot_1, shot_2, shot_3)),
+         combined_vaccines = function_combined_vaccines(all_three_shots)) %>%
   mutate(
-    group_vaccines = as.factor(group_vaccines),
-    location_vaccines = as.factor(location_vaccines)
+    eu_vaccines = as.factor(eu_vaccines),
+    rna_vaccines = as.factor(rna_vaccines),
+    combined_vaccines = as.factor(combined_vaccines)
   ) %>%
   select(
     NUHSA_ENCRIPTADO:shot_3,
-    group_vaccines,
-    location_vaccines,
+    all_three_shots,
+    eu_vaccines,
+    rna_vaccines,
+    combined_vaccines,
     n_prev_infecc:n_exposi
   ) %>%
   arrange(NUHSA_ENCRIPTADO)
+
+# Create table to see most common shot combination
+table_3shots <- table(vacunas3$all_three_shots)
+tabla_ordenada <- table_3shots[order(-table_3shots)]
+tabla_ordenada
 
 remove(vacunas_raw)
 remove(vacunas_inprogress)
@@ -961,9 +972,12 @@ estudio_vacunas_t_final_selected %<>%
       n_vacunas_covid == 0 ~ "Ninguna",
     )
   )) %>%
-  mutate(across(shot_1:location_vaccines, ~ if_else(is.na(.x), "None", .x))) %>%
-  mutate(across(shot_1:location_vaccines, ~ as.factor(.x))) %>%
-  mutate(across(shot_1:location_vaccines, ~ relevel(.x, ref = "None"))) %>%
+  mutate(vaccine_bin = as.factor(if_else(n_vacunas_covid=="Ninguna", "No", "Sí"))) %>%
+  mutate(vaccine_bin = relevel(vaccine_bin, ref = "No")) %>%
+  mutate(across(shot_1:shot_3, ~ if_else(is.na(.x), "None", .x))) %>%
+  mutate(across(shot_1:shot_3, ~ as.factor(.x))) %>%
+  mutate(across(shot_1:shot_3, ~ relevel(.x, ref = "None"))) %>%
+  mutate(across(eu_vaccines:combined_vaccines, ~ relevel(.x, ref = "Other"))) %>%
   mutate(
     n_vacunas_covid = relevel(n_vacunas_covid, ref = "Ninguna"),
     n_prev_infecc = as.factor(
@@ -1031,7 +1045,9 @@ estudio_vacunas_t_final_selected %<>%
     ultima_vac_infecc_bin = as.factor(ultima_vac_infecc_bin),
     ultima_vac_infecc_bin = relevel(ultima_vac_infecc_bin, ref = "Less than one month"),
     ultima_inmun_infecc_bin = as.factor(ultima_inmun_infecc_bin),
-    ultima_inmun_infecc_bin = relevel(ultima_inmun_infecc_bin, ref = "Less than one month")
+    ultima_inmun_infecc_bin = relevel(ultima_inmun_infecc_bin, ref = "Less than one month"),
+    clinical_event = as.factor(ifelse(hosp_stay_bin=="Sí" | icu_stay_bin=="Sí" | mortality30d=="Sí", "Sí", "No")),
+    clinical_event = relevel(clinical_event, ref = "No")
   )
 
 

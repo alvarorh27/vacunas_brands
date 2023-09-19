@@ -1,0 +1,73 @@
+---
+title: "02_tables_clinicalevent"
+# output: html_document
+---
+
+# Environment
+
+```{r}
+library(dplyr)
+library(magrittr)
+library(tableone)
+library(kableExtra)
+library(gtsummary)
+library(knitr)
+
+```
+
+#Load File
+
+```{r}
+final_dataset <- (
+  readRDS(
+    "~/projects/vacunas_brands/data/estudio_vacunasbrands_t_final_selected_manuscript.rds"
+  )
+)
+```
+
+# Table one. Stratified by Hospital Admission
+
+```{r}
+# Lists the variables we are going to be including in table1 (except for the stratification variable)
+vars_in_table1<-c('age', 'desc_sexo', 'variant_period', 'asma', 'cardiopatia_isquemica', 'cirrosis_hepatica', 'diabetes', 'epoc', 'hepatopatia_cronica_excepto_cirrosis', 'hipertension', 'insuficiencia_cardiaca', 'insuficiencia_renal_cronica', 'vih', 'cancer_hematologico', 'cancer_organo_solido', 'n_prev_infecc', 'ultima_inmun_infecc_bin', 'vaccine_bin', 'clinical_event', 'eu_vaccines', 'rna_vaccines', 'combined_vaccines') 
+
+# Creates a dataset with only selected variables using our original dataset and generates an empty list for storing categorical variables
+table1_dataset <- final_dataset[,vars_in_table1]
+cat_variables <- rep(NA, length(vars_in_table1))
+
+# Detects whether a variable is categorical or not
+cont <- 1
+for (i in 1:length(vars_in_table1) ) {
+  if ( n_distinct(table1_dataset[vars_in_table1[i] ])<=10 ) {
+    print(i)
+    print(vars_in_table1[i])
+    print(names(table1_dataset[vars_in_table1[i]]))
+    cat_variables[cont]<-names(table1_dataset[vars_in_table1[i]])
+    cont<-cont+1
+  }
+}
+
+# Establishes the stratification variables and eliminates null values from 'cat_variables'
+stratifyby <- c("clinical_event")
+cat_variables<-cat_variables[!is.na(cat_variables)]
+
+# Creates table one
+table1_tbi<-print(CreateTableOne(vars = vars_in_table1, strata = stratifyby, factorVars = cat_variables, data = table1_dataset, addOverall=T),varLabels = T)
+
+# Run this in console for html output, the code below uses kableExtra::
+ starification_cats<-n_distinct(table1_dataset[,stratifyby])
+ 
+# For console
+ table1_tbi %>%
+   kbl(caption = "Table 1 of base model: Clinical Event" , align = "c") %>%
+   kable_classic_2(full_width = F, html_font = "Cambria") %>%
+   add_header_above(c("", "", "No", "Yes", "", ""))
+
+# Export kable 
+  table1_tbi %>%
+   kbl(caption = "Table 1 of base model: Clinical Event" , align = "c") %>%
+   kable_classic_2(full_width = F, html_font = "Cambria") %>%
+   add_header_above(c("", "", "No", "Yes", "", "")) %>%
+   save_kable("~/projects/vacunas_brands/figures/table1_clinicalevent.jpg", zoom = 10)
+
+```

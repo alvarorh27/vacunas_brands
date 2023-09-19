@@ -1,0 +1,610 @@
+---
+title: "03_modeling"
+# output: html_document
+---
+
+# Environment
+
+```{r}
+library(skimr)
+library(mgcv)
+library(parallel)
+library(parglm)
+library(pROC)
+library(ggplot2)
+library(tibble)
+library(dplyr)
+library(feather)
+library(broom)
+library(htmlTable)
+library(caret)
+
+extract_coef_pval_OR <- function(model) {
+  
+  as.data.frame(tibble(term = names(model$coefficients),
+                       estimate = model$coefficients,
+                       std.error = sqrt(diag(vcov(model))),
+                       statistic = model$coefficients / sqrt(diag(vcov(model))),
+                       p.value = 2 * (1 - pnorm(abs(statistic))),
+                       OR = round(exp(estimate),2),
+                       OR_CI_lower = round(exp(estimate - 1.96 * std.error),2),
+                       OR_CI_upper = round(exp(estimate + 1.96 * std.error),2)
+  )
+  )
+} 
+```
+
+# Load File
+
+```{r}
+final_dataset <- (
+  readRDS(
+    "~/projects/vacunas_brands/data/estudio_vacunasbrands_t_final_selected_manuscript.rds"
+  )
+)
+```
+
+# Analysis of variable eu_vaccines
+
+## Logistic Regression of Clinical Event
+
+### Fitting the model
+
+```{r}
+print('Logistic Regression of Hospital Admission')
+print(Sys.time())
+logreg_hadm <- glm(
+   clinical_event ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + group_vaccines,
+  data =  final_dataset,
+  family=binomial())
+print(Sys.time())
+```
+
+### Odds ratio
+
+```{r fig.height=16, fig.width=10}
+coef_pval_df_hadm_1 <- extract_coef_pval_OR(logreg_hadm)
+
+write.csv(coef_pval_df_hadm_1,'~/projects/vacunas_brands/data/oddsratio_hadm.csv')
+htmlTable(coef_pval_df_hadm_1[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "Odds Ratio for Hospital Admission")
+```
+
+### Forest Plot
+
+```{r}
+variable_order <- rev(c(
+  "Intercept", "Age", "Gender (male)", "Period of α predominance",
+  "α-Δ transition period", "Period of Δ predominance", "Δ-Ό transition period",
+  "Period of Ό predominance", "Number of Previous Infections (1)", "Number of Previous Infections (2)",
+  "Last vaccination/infection (<1 month ago)", "Last vaccination/infection (1-3 months ago)",
+  "Last vaccination/infection (3-6 months ago)", "Last vaccination/infection (>6 months ago)", "Asthma",
+  "Ischemic heart disease", "Hepatic cirrhosis", "Diabetes", "Chronic Obstructive Pulmonary Disease (COPD)",
+  "Chronic Hepatic Disease (except cirrhosis)", "Hypertension", "Heart failure", "Chronic kidney disease",
+  "HIV+", "Haematologic cancer", "Solid organ cancer", "Pfizer/BioNTech vaccine",
+  "Moderna vaccine", "Mix of RNA vaccines", "AstraZeneca vaccine", "Janssen vaccine",
+  "Mix of EU non-RNA vaccines", "Mix of EU RNA and non-RNA vaccines", "Sputnik V vaccine",
+  "Sinopharm vaccine", "CoronaVac (Sinovac Biotech) vaccine", "Covishield vaccine", "Abdala vaccine",
+  "Mix of EU RNA vaccines + non-EU Vaccines", "Mix of EU non-RNA Vaccines + non-EU Vaccines"
+))
+
+coef_pval_df_hadm_2 <- coef_pval_df_hadm_1  %>%
+  mutate(
+    term = case_when(
+      term == "(Intercept)" ~ "Intercept",
+      term == "age" ~ "Age",
+      term == "desc_sexoHombre" ~ "Gender (male)",
+      term == "variant_periodα" ~ "Period of α predominance",
+      term == "variant_periodα/Δ transition" ~ "α-Δ transition period",
+      term == "variant_periodΔ" ~ "Period of Δ predominance",
+      term == "variant_periodΔ / Ό transition" ~ "Δ-Ό transition period",
+      term == "variant_periodΌ" ~ "Period of Ό predominance",
+      term == "n_prev_infeccUno" ~ "Number of Previous Infections (1)",
+      term == "n_prev_infeccDos" ~ "Number of Previous Infections (2)",
+      term == "ultima_inmun_infecc_binLess than one month" ~ "Last vaccination/infection (<1 month ago)",
+      term == "ultima_inmun_infecc_binOne to three months" ~ "Last vaccination/infection (1-3 months ago)",
+      term == "ultima_inmun_infecc_binThree to six months" ~ "Last vaccination/infection (3-6 months ago)",
+      term == "ultima_inmun_infecc_binSix months or more" ~ "Last vaccination/infection (>6 months ago)",
+      term == "asmaSí" ~ "Asthma",
+      term == "cardiopatia_isquemicaSí" ~ "Ischemic heart disease",
+      term == "cirrosis_hepaticaSí" ~ "Hepatic cirrhosis",
+      term == "diabetesSí" ~ "Diabetes",
+      term == "epocSí" ~ "Chronic Obstructive Pulmonary Disease (COPD)",
+      term == "hepatopatia_cronica_excepto_cirrosisSí" ~ "Chronic Hepatic Disease (except cirrhosis)",
+      term == "hipertensionSí" ~ "Hypertension",
+      term == "insuficiencia_cardiacaSí" ~ "Heart failure",
+      term == "insuficiencia_renal_cronicaSí" ~ "Chronic kidney disease",
+      term == "vihSí" ~ "HIV+",
+      term == "cancer_hematologicoSí" ~ "Haematologic cancer",
+      term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
+      term == "group_vaccinesPfizer/BioNTech" ~ "Pfizer/BioNTech vaccine",
+      term == "group_vaccinesModerna" ~ "Moderna vaccine",
+      term == "group_vaccinesMix of EU RNA vaccines" ~ "Mix of RNA vaccines",
+      term == "group_vaccinesAstraZeneca" ~ "AstraZeneca vaccine",
+      term == "group_vaccinesJanssen" ~ "Janssen vaccine",
+      term == "group_vaccinesMix of EU non-RNA vaccines" ~ "Mix of EU non-RNA vaccines",
+      term == "group_vaccinesMix of EU RNA and non-RNA vaccines" ~ "Mix of EU RNA and non-RNA vaccines",
+      term == "group_vaccinesSputnik V" ~ "Sputnik V vaccine",
+      term == "group_vaccinesSinopharm" ~ "Sinopharm vaccine",
+      term == "group_vaccinesCoronaVac (Sinovac Biotech)" ~ "CoronaVac (Sinovac Biotech) vaccine",
+      term == "group_vaccinesCovishield" ~ "Covishield vaccine",
+      term == "group_vaccinesAbdala" ~ "Abdala vaccine",
+      term == "group_vaccinesEU RNA vaccines + non-EU Vaccines" ~ "Mix of EU RNA vaccines + non-EU Vaccines",
+      term == "group_vaccinesEU non-RNA Vaccines + non-EU Vaccines" ~ "Mix of EU non-RNA Vaccines + non-EU Vaccines",
+      TRUE ~ term
+    ),
+    term = factor(term, levels = variable_order)
+  ) %>%
+  filter(term != "Intercept")
+
+
+ggplot(coef_pval_df_hadm_2, 
+       aes(x=term, y=OR, ymin=OR_CI_lower, ymax=OR_CI_upper)) +
+  geom_hline(yintercept=1, colour = "blue", linewidth=0.8, linetype="dotted") +
+  geom_pointrange(alpha=0.7, shape=15, position = position_dodge(width = 0.5)) +
+  geom_vline(xintercept=0, linewidth=1.2) +
+  scale_x_discrete(expand = expansion(add = c(1, 0.8))) + 
+  scale_y_continuous(expand = expansion(add = c(0.1, 0.1))) +
+  scale_y_log10(limits = c(0.01, 22)) +
+  coord_flip() +
+  labs(y="Odds Ratio", x=NULL) +
+  ggtitle('Hospital admission') +
+  theme_minimal() +
+  theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
+
+
+
+# Save the plot as a PNG file
+ggsave("~/projects/vacunas_brands/figures/fp_hadm.png", width = 6, height = 4, dpi = 300)
+```
+
+## Logistic Regression of ICU Admission
+
+### Fitting the model
+
+```{r}
+print('Logistic Regression of Hospital Admission')
+print(Sys.time())
+logreg_icuadm <- glm(
+   icu_stay_bin ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + group_vaccines,
+  data =  final_dataset,
+  family=binomial())
+print(Sys.time())
+```
+
+### Odds ratio
+
+```{r fig.height=16, fig.width=10}
+coef_pval_df_icuadm_1 <- extract_coef_pval_OR(logreg_icuadm)
+
+write.csv(coef_pval_df_icuadm_1,'~/projects/vacunas_brands/data/oddsratio_icuadm.csv')
+htmlTable(coef_pval_df_icuadm_1[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "Odds Ratio for ICU Admission")
+```
+
+### Forest Plot
+
+```{r}
+coef_pval_df_icuadm_2<- coef_pval_df_icuadm_1  %>% 
+  mutate(
+    term = case_when(
+      term == "(Intercept)" ~ "Intercept",
+      term == "age" ~ "Age",
+      term == "desc_sexoHombre" ~ "Gender (male)",
+      term == "variant_periodα" ~ "Period of α predominance",
+      term == "variant_periodα/Δ transition" ~ "α-Δ transition period",
+      term == "variant_periodΔ" ~ "Period of Δ predominance",
+      term == "variant_periodΔ / Ό transition" ~ "Δ-Ό transition period",
+      term == "variant_periodΌ" ~ "Period of Ό predominance",
+      term == "n_prev_infeccUno" ~ "Number of Previous Infections (1)",
+      term == "n_prev_infeccDos" ~ "Number of Previous Infections (2)",
+      term == "ultima_inmun_infecc_binLess than one month" ~ "Last vaccination/infection (<1 month ago)",
+      term == "ultima_inmun_infecc_binOne to three months" ~ "Last vaccination/infection (1-3 months ago)",
+      term == "ultima_inmun_infecc_binThree to six months" ~ "Last vaccination/infection (3-6 months ago)",
+      term == "ultima_inmun_infecc_binSix months or more" ~ "Last vaccination/infection (>6 months ago)",
+      term == "asmaSí" ~ "Asthma",
+      term == "cardiopatia_isquemicaSí" ~ "Ischemic heart disease",
+      term == "cirrosis_hepaticaSí" ~ "Hepatic cirrhosis",
+      term == "diabetesSí" ~ "Diabetes",
+      term == "epocSí" ~ "Chronic Obstructive Pulmonary Disease (COPD)",
+      term == "hepatopatia_cronica_excepto_cirrosisSí" ~ "Chronic Hepatic Disease (except cirrhosis)",
+      term == "hipertensionSí" ~ "Hypertension",
+      term == "insuficiencia_cardiacaSí" ~ "Heart failure",
+      term == "insuficiencia_renal_cronicaSí" ~ "Chronic kidney disease",
+      term == "vihSí" ~ "HIV+",
+      term == "cancer_hematologicoSí" ~ "Haematologic cancer",
+      term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
+      term == "group_vaccinesPfizer/BioNTech" ~ "Pfizer/BioNTech vaccine",
+      term == "group_vaccinesModerna" ~ "Moderna vaccine",
+      term == "group_vaccinesMix of EU RNA vaccines" ~ "Mix of RNA vaccines",
+      term == "group_vaccinesAstraZeneca" ~ "AstraZeneca vaccine",
+      term == "group_vaccinesJanssen" ~ "Janssen vaccine",
+      term == "group_vaccinesMix of EU non-RNA vaccines" ~ "Mix of EU non-RNA vaccines",
+      term == "group_vaccinesMix of EU RNA and non-RNA vaccines" ~ "Mix of EU RNA and non-RNA vaccines",
+      term == "group_vaccinesSputnik V" ~ "Sputnik V vaccine",
+      term == "group_vaccinesSinopharm" ~ "Sinopharm vaccine",
+      term == "group_vaccinesCoronaVac (Sinovac Biotech)" ~ "CoronaVac (Sinovac Biotech) vaccine",
+      term == "group_vaccinesCovishield" ~ "Covishield vaccine",
+      term == "group_vaccinesAbdala" ~ "Abdala vaccine",
+      term == "group_vaccinesEU RNA vaccines + non-EU Vaccines" ~ "Mix of EU RNA vaccines + non-EU Vaccines",
+      term == "group_vaccinesEU non-RNA Vaccines + non-EU Vaccines" ~ "Mix of EU non-RNA Vaccines + non-EU Vaccines",
+      TRUE ~ term
+    ),
+    term = factor(term, levels = variable_order)
+  ) %>%
+  filter(term != "Intercept")
+
+ggplot(coef_pval_df_icuadm_2, 
+       aes(x=term, y=OR, ymin=OR_CI_lower, ymax=OR_CI_upper)) +
+  geom_hline(yintercept=1, colour = "blue", linewidth=0.8, linetype="dotted") +
+  geom_pointrange(alpha=0.7, shape=15) +
+  geom_vline(xintercept=0, linewidth=1.2) +
+  scale_x_discrete(expand = expansion(add = c(1, 0.8))) + 
+  scale_y_continuous(expand = expansion(add = c(0.1, 0.1))) +
+  scale_y_log10(limits = c(0.01, 22)) +
+  coord_flip() +
+  labs(y="Odds Ratio", x=NULL) +
+  ggtitle('ICU admission') +
+  theme_minimal() +
+  theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
+
+
+# Save the plot as a PNG file
+ggsave("~/projects/vacunas_brands/figures/fp_icuadm.png", width = 6, height = 4, dpi = 300)
+```
+
+## Logistic Regression of Mortality at 30 days by COVID-19
+
+### Fitting the model
+
+```{r}
+print('Logistic Regression of Mortality at 30 days by COVID-19')
+print(Sys.time())
+logreg_death <- glm(
+   mortality30d ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + group_vaccines,
+  data =  final_dataset,
+  family=binomial())
+print(Sys.time())
+```
+
+### Odds ratio
+
+```{r fig.height=16, fig.width=10}
+coef_pval_df_death_1 <- extract_coef_pval_OR(logreg_death)
+
+write.csv(coef_pval_df_death_1,'~/projects/vacunas_brands/data/oddsratio_death.csv')
+htmlTable(coef_pval_df_death_1[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "Odds Ratio for Mortality at 30 days by COVID-19")
+```
+
+### Forest Plot
+
+```{r}
+coef_pval_df_death_2<- coef_pval_df_death_1  %>% 
+  mutate(
+    term = case_when(
+      term == "(Intercept)" ~ "Intercept",
+      term == "age" ~ "Age",
+      term == "desc_sexoHombre" ~ "Gender (male)",
+      term == "variant_periodα" ~ "Period of α predominance",
+      term == "variant_periodα/Δ transition" ~ "α-Δ transition period",
+      term == "variant_periodΔ" ~ "Period of Δ predominance",
+      term == "variant_periodΔ / Ό transition" ~ "Δ-Ό transition period",
+      term == "variant_periodΌ" ~ "Period of Ό predominance",
+      term == "n_prev_infeccUno" ~ "Number of Previous Infections (1)",
+      term == "n_prev_infeccDos" ~ "Number of Previous Infections (2)",
+      term == "ultima_inmun_infecc_binLess than one month" ~ "Last vaccination/infection (<1 month ago)",
+      term == "ultima_inmun_infecc_binOne to three months" ~ "Last vaccination/infection (1-3 months ago)",
+      term == "ultima_inmun_infecc_binThree to six months" ~ "Last vaccination/infection (3-6 months ago)",
+      term == "ultima_inmun_infecc_binSix months or more" ~ "Last vaccination/infection (>6 months ago)",
+      term == "asmaSí" ~ "Asthma",
+      term == "cardiopatia_isquemicaSí" ~ "Ischemic heart disease",
+      term == "cirrosis_hepaticaSí" ~ "Hepatic cirrhosis",
+      term == "diabetesSí" ~ "Diabetes",
+      term == "epocSí" ~ "Chronic Obstructive Pulmonary Disease (COPD)",
+      term == "hepatopatia_cronica_excepto_cirrosisSí" ~ "Chronic Hepatic Disease (except cirrhosis)",
+      term == "hipertensionSí" ~ "Hypertension",
+      term == "insuficiencia_cardiacaSí" ~ "Heart failure",
+      term == "insuficiencia_renal_cronicaSí" ~ "Chronic kidney disease",
+      term == "vihSí" ~ "HIV+",
+      term == "cancer_hematologicoSí" ~ "Haematologic cancer",
+      term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
+      term == "group_vaccinesPfizer/BioNTech" ~ "Pfizer/BioNTech vaccine",
+      term == "group_vaccinesModerna" ~ "Moderna vaccine",
+      term == "group_vaccinesMix of EU RNA vaccines" ~ "Mix of RNA vaccines",
+      term == "group_vaccinesAstraZeneca" ~ "AstraZeneca vaccine",
+      term == "group_vaccinesJanssen" ~ "Janssen vaccine",
+      term == "group_vaccinesMix of EU non-RNA vaccines" ~ "Mix of EU non-RNA vaccines",
+      term == "group_vaccinesMix of EU RNA and non-RNA vaccines" ~ "Mix of EU RNA and non-RNA vaccines",
+      term == "group_vaccinesSputnik V" ~ "Sputnik V vaccine",
+      term == "group_vaccinesSinopharm" ~ "Sinopharm vaccine",
+      term == "group_vaccinesCoronaVac (Sinovac Biotech)" ~ "CoronaVac (Sinovac Biotech) vaccine",
+      term == "group_vaccinesCovishield" ~ "Covishield vaccine",
+      term == "group_vaccinesAbdala" ~ "Abdala vaccine",
+      term == "group_vaccinesEU RNA vaccines + non-EU Vaccines" ~ "Mix of EU RNA vaccines + non-EU Vaccines",
+      term == "group_vaccinesEU non-RNA Vaccines + non-EU Vaccines" ~ "Mix of EU non-RNA Vaccines + non-EU Vaccines",
+      TRUE ~ term
+    ),
+    term = factor(term, levels = variable_order)
+  ) %>%
+  filter(term != "Intercept")
+
+ggplot(coef_pval_df_death_2, 
+       aes(x=term, y=OR, ymin=OR_CI_lower, ymax=OR_CI_upper)) +
+  geom_hline(yintercept=1, colour = "blue", linewidth=0.8, linetype="dotted") +
+  geom_pointrange(alpha=0.7, shape=15) +
+  geom_vline(xintercept=0, linewidth=1.2) +
+  scale_x_discrete(expand = expansion(add = c(1, 0.8))) + 
+  scale_y_continuous(expand = expansion(add = c(0.1, 0.1))) +
+  scale_y_log10(limits = c(0.01, 22)) +
+  coord_flip() +
+  labs(y="Odds Ratio", x=NULL) +
+  ggtitle('Mortality at 30 days by COVID-19') +
+  theme_minimal() +
+  theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
+
+
+# Save the plot as a PNG file
+ggsave("~/projects/vacunas_brands/figures/fp_death.png", width = 6, height = 4, dpi = 300)
+```
+
+# Analysis of variable location_vaccines
+
+## Logistic Regression of Hospital Admission
+
+### Fitting the model
+
+```{r}
+print('Logistic Regression of Hospital Admission')
+print(Sys.time())
+logreg_loc_hadm <- glm(
+   hosp_stay_bin ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + location_vaccines,
+  data =  final_dataset,
+  family=binomial())
+print(Sys.time())
+```
+
+### Odds ratio
+
+```{r fig.height=16, fig.width=10}
+coef_pval_df_loc_hadm_1 <- extract_coef_pval_OR(logreg_loc_hadm)
+
+write.csv(coef_pval_df_loc_hadm_1,'~/projects/vacunas_brands/data/oddsratio_loc_hadm.csv')
+htmlTable(coef_pval_df_loc_hadm_1[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "Odds Ratio for Hospital Admission")
+```
+
+### Forest Plot
+
+```{r}
+variable_loc_order <- rev(c(
+  "Intercept", "Age", "Gender (male)", "Period of α predominance",
+  "α-Δ transition period", "Period of Δ predominance", "Δ-Ό transition period",
+  "Period of Ό predominance", "Number of Previous Infections (1)", "Number of Previous Infections (2)",
+  "Last vaccination/infection (<1 month ago)", "Last vaccination/infection (1-3 months ago)",
+  "Last vaccination/infection (3-6 months ago)", "Last vaccination/infection (>6 months ago)", "Asthma",
+  "Ischemic heart disease", "Hepatic cirrhosis", "Diabetes", "Chronic Obstructive Pulmonary Disease (COPD)", "Chronic Hepatic Disease (except cirrhosis)", "Hypertension", "Heart failure", "Chronic kidney disease",
+  "HIV+", "Haematologic cancer", "Solid organ cancer", "EU vaccines", "non-EU vaccines", "Mix of EU and non-EU vaccines"
+))
+
+coef_pval_df_loc_hadm_2 <- coef_pval_df_loc_hadm_1  %>%
+  mutate(
+    term = case_when(
+      term == "(Intercept)" ~ "Intercept",
+      term == "age" ~ "Age",
+      term == "desc_sexoHombre" ~ "Gender (male)",
+      term == "variant_periodα" ~ "Period of α predominance",
+      term == "variant_periodα/Δ transition" ~ "α-Δ transition period",
+      term == "variant_periodΔ" ~ "Period of Δ predominance",
+      term == "variant_periodΔ / Ό transition" ~ "Δ-Ό transition period",
+      term == "variant_periodΌ" ~ "Period of Ό predominance",
+      term == "n_prev_infeccUno" ~ "Number of Previous Infections (1)",
+      term == "n_prev_infeccDos" ~ "Number of Previous Infections (2)",
+      term == "ultima_inmun_infecc_binLess than one month" ~ "Last vaccination/infection (<1 month ago)",
+      term == "ultima_inmun_infecc_binOne to three months" ~ "Last vaccination/infection (1-3 months ago)",
+      term == "ultima_inmun_infecc_binThree to six months" ~ "Last vaccination/infection (3-6 months ago)",
+      term == "ultima_inmun_infecc_binSix months or more" ~ "Last vaccination/infection (>6 months ago)",
+      term == "asmaSí" ~ "Asthma",
+      term == "cardiopatia_isquemicaSí" ~ "Ischemic heart disease",
+      term == "cirrosis_hepaticaSí" ~ "Hepatic cirrhosis",
+      term == "diabetesSí" ~ "Diabetes",
+      term == "epocSí" ~ "Chronic Obstructive Pulmonary Disease (COPD)",
+      term == "hepatopatia_cronica_excepto_cirrosisSí" ~ "Chronic Hepatic Disease (except cirrhosis)",
+      term == "hipertensionSí" ~ "Hypertension",
+      term == "insuficiencia_cardiacaSí" ~ "Heart failure",
+      term == "insuficiencia_renal_cronicaSí" ~ "Chronic kidney disease",
+      term == "vihSí" ~ "HIV+",
+      term == "cancer_hematologicoSí" ~ "Haematologic cancer",
+      term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
+      term == "location_vaccinesEU Vaccines" ~ "EU vaccines",
+      term == "location_vaccinesNon-EU Vaccines" ~ "non-EU vaccines",
+      term == "location_vaccinesEU and non-EU Vaccines" ~ "Mix of EU and non-EU vaccines",
+      TRUE ~ term
+    ),
+    term = factor(term, levels = variable_loc_order)
+  ) %>%
+  filter(term != "Intercept")
+
+
+ggplot(coef_pval_df_loc_hadm_2, 
+       aes(x=term, y=OR, ymin=OR_CI_lower, ymax=OR_CI_upper)) +
+  geom_hline(yintercept=1, colour = "blue", linewidth=0.8, linetype="dotted") +
+  geom_pointrange(alpha=0.7, shape=15, position = position_dodge(width = 0.5)) +
+  geom_vline(xintercept=0, linewidth=1.2) +
+  scale_x_discrete(expand = expansion(add = c(1, 0.8))) + 
+  scale_y_continuous(expand = expansion(add = c(0.1, 0.1))) +
+  scale_y_log10(limits = c(0.01, 22)) +
+  coord_flip() +
+  labs(y="Odds Ratio", x=NULL) +
+  ggtitle('Hospital admission') +
+  theme_minimal() +
+  theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
+
+
+
+# Save the plot as a PNG file
+ggsave("~/projects/vacunas_brands/figures/fp_loc_hadm.png", width = 6, height = 4, dpi = 300)
+```
+
+## Logistic Regression of ICU Admission
+
+### Fitting the model
+
+```{r}
+print('Logistic Regression of Hospital Admission')
+print(Sys.time())
+logreg_loc_icuadm <- glm(
+   icu_stay_bin ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + location_vaccines,
+  data =  final_dataset,
+  family=binomial())
+print(Sys.time())
+```
+
+### Odds ratio
+
+```{r fig.height=16, fig.width=10}
+coef_pval_df_loc_icuadm_1 <- extract_coef_pval_OR(logreg_loc_icuadm)
+
+write.csv(coef_pval_df_loc_icuadm_1,'~/projects/vacunas_brands/data/oddsratio_loc_icuadm.csv')
+htmlTable(coef_pval_df_loc_icuadm_1[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "Odds Ratio for ICU Admission")
+```
+
+### Forest Plot
+
+```{r}
+coef_pval_df_loc_icuadm_2<- coef_pval_df_loc_icuadm_1  %>% 
+  mutate(
+    term = case_when(
+      term == "(Intercept)" ~ "Intercept",
+      term == "age" ~ "Age",
+      term == "desc_sexoHombre" ~ "Gender (male)",
+      term == "variant_periodα" ~ "Period of α predominance",
+      term == "variant_periodα/Δ transition" ~ "α-Δ transition period",
+      term == "variant_periodΔ" ~ "Period of Δ predominance",
+      term == "variant_periodΔ / Ό transition" ~ "Δ-Ό transition period",
+      term == "variant_periodΌ" ~ "Period of Ό predominance",
+      term == "n_prev_infeccUno" ~ "Number of Previous Infections (1)",
+      term == "n_prev_infeccDos" ~ "Number of Previous Infections (2)",
+      term == "ultima_inmun_infecc_binLess than one month" ~ "Last vaccination/infection (<1 month ago)",
+      term == "ultima_inmun_infecc_binOne to three months" ~ "Last vaccination/infection (1-3 months ago)",
+      term == "ultima_inmun_infecc_binThree to six months" ~ "Last vaccination/infection (3-6 months ago)",
+      term == "ultima_inmun_infecc_binSix months or more" ~ "Last vaccination/infection (>6 months ago)",
+      term == "asmaSí" ~ "Asthma",
+      term == "cardiopatia_isquemicaSí" ~ "Ischemic heart disease",
+      term == "cirrosis_hepaticaSí" ~ "Hepatic cirrhosis",
+      term == "diabetesSí" ~ "Diabetes",
+      term == "epocSí" ~ "Chronic Obstructive Pulmonary Disease (COPD)",
+      term == "hepatopatia_cronica_excepto_cirrosisSí" ~ "Chronic Hepatic Disease (except cirrhosis)",
+      term == "hipertensionSí" ~ "Hypertension",
+      term == "insuficiencia_cardiacaSí" ~ "Heart failure",
+      term == "insuficiencia_renal_cronicaSí" ~ "Chronic kidney disease",
+      term == "vihSí" ~ "HIV+",
+      term == "cancer_hematologicoSí" ~ "Haematologic cancer",
+      term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
+      term == "location_vaccinesEU Vaccines" ~ "EU vaccines",
+      term == "location_vaccinesNon-EU Vaccines" ~ "non-EU vaccines",
+      term == "location_vaccinesEU and non-EU Vaccines" ~ "Mix of EU and non-EU vaccines",
+      TRUE ~ term
+    ),
+    term = factor(term, levels = variable_loc_order)
+  ) %>%
+  filter(term != "Intercept")
+
+ggplot(coef_pval_df_loc_icuadm_2, 
+       aes(x=term, y=OR, ymin=OR_CI_lower, ymax=OR_CI_upper)) +
+  geom_hline(yintercept=1, colour = "blue", linewidth=0.8, linetype="dotted") +
+  geom_pointrange(alpha=0.7, shape=15) +
+  geom_vline(xintercept=0, linewidth=1.2) +
+  scale_x_discrete(expand = expansion(add = c(1, 0.8))) + 
+  scale_y_continuous(expand = expansion(add = c(0.1, 0.1))) +
+  scale_y_log10(limits = c(0.01, 22)) +
+  coord_flip() +
+  labs(y="Odds Ratio", x=NULL) +
+  ggtitle('ICU admission') +
+  theme_minimal() +
+  theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
+
+
+# Save the plot as a PNG file
+ggsave("~/projects/vacunas_brands/figures/fp_loc_icuadm.png", width = 6, height = 4, dpi = 300)
+```
+
+## Logistic Regression of Mortality at 30 days by COVID-19
+
+### Fitting the model
+
+```{r}
+print('Logistic Regression of Mortality at 30 days by COVID-19')
+print(Sys.time())
+logreg_loc_death <- glm(
+   mortality30d ~ age + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + n_prev_infecc + ultima_inmun_infecc_bin + location_vaccines,
+  data =  final_dataset,
+  family=binomial())
+print(Sys.time())
+```
+
+### Odds ratio
+
+```{r fig.height=16, fig.width=10}
+coef_pval_df_loc_death_1 <- extract_coef_pval_OR(logreg_loc_death)
+
+write.csv(coef_pval_df_loc_death_1,'~/projects/vacunas_brands/data/oddsratio_loc_death.csv')
+htmlTable(coef_pval_df_loc_death_1[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "Odds Ratio for Mortality at 30 days by COVID-19")
+```
+
+### Forest Plot
+
+```{r}
+coef_pval_df_loc_death_2<- coef_pval_df_loc_death_1  %>% 
+  mutate(
+    term = case_when(
+      term == "(Intercept)" ~ "Intercept",
+      term == "age" ~ "Age",
+      term == "desc_sexoHombre" ~ "Gender (male)",
+      term == "variant_periodα" ~ "Period of α predominance",
+      term == "variant_periodα/Δ transition" ~ "α-Δ transition period",
+      term == "variant_periodΔ" ~ "Period of Δ predominance",
+      term == "variant_periodΔ / Ό transition" ~ "Δ-Ό transition period",
+      term == "variant_periodΌ" ~ "Period of Ό predominance",
+      term == "n_prev_infeccUno" ~ "Number of Previous Infections (1)",
+      term == "n_prev_infeccDos" ~ "Number of Previous Infections (2)",
+      term == "ultima_inmun_infecc_binLess than one month" ~ "Last vaccination/infection (<1 month ago)",
+      term == "ultima_inmun_infecc_binOne to three months" ~ "Last vaccination/infection (1-3 months ago)",
+      term == "ultima_inmun_infecc_binThree to six months" ~ "Last vaccination/infection (3-6 months ago)",
+      term == "ultima_inmun_infecc_binSix months or more" ~ "Last vaccination/infection (>6 months ago)",
+      term == "asmaSí" ~ "Asthma",
+      term == "cardiopatia_isquemicaSí" ~ "Ischemic heart disease",
+      term == "cirrosis_hepaticaSí" ~ "Hepatic cirrhosis",
+      term == "diabetesSí" ~ "Diabetes",
+      term == "epocSí" ~ "Chronic Obstructive Pulmonary Disease (COPD)",
+      term == "hepatopatia_cronica_excepto_cirrosisSí" ~ "Chronic Hepatic Disease (except cirrhosis)",
+      term == "hipertensionSí" ~ "Hypertension",
+      term == "insuficiencia_cardiacaSí" ~ "Heart failure",
+      term == "insuficiencia_renal_cronicaSí" ~ "Chronic kidney disease",
+      term == "vihSí" ~ "HIV+",
+      term == "cancer_hematologicoSí" ~ "Haematologic cancer",
+      term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
+      term == "location_vaccinesEU Vaccines" ~ "EU vaccines",
+      term == "location_vaccinesNon-EU Vaccines" ~ "non-EU vaccines",
+      term == "location_vaccinesEU and non-EU Vaccines" ~ "Mix of EU and non-EU vaccines",
+      TRUE ~ term
+    ),
+    term = factor(term, levels = variable_loc_order)
+  ) %>%
+  filter(term != "Intercept")
+
+ggplot(coef_pval_df_loc_death_2, 
+       aes(x=term, y=OR, ymin=OR_CI_lower, ymax=OR_CI_upper)) +
+  geom_hline(yintercept=1, colour = "blue", linewidth=0.8, linetype="dotted") +
+  geom_pointrange(alpha=0.7, shape=15) +
+  geom_vline(xintercept=0, linewidth=1.2) +
+  scale_x_discrete(expand = expansion(add = c(1, 0.8))) + 
+  scale_y_continuous(expand = expansion(add = c(0.1, 0.1))) +
+  scale_y_log10(limits = c(0.01, 22)) +
+  coord_flip() +
+  labs(y="Odds Ratio", x=NULL) +
+  ggtitle('Mortality at 30 days by COVID-19') +
+  theme_minimal() +
+  theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
+
+
+# Save the plot as a PNG file
+ggsave("~/projects/vacunas_brands/figures/fp_loc_death.png", width = 6, height = 4, dpi = 300)
+```
+
