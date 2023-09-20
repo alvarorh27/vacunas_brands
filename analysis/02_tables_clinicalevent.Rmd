@@ -20,7 +20,7 @@ library(knitr)
 ```{r}
 final_dataset <- (
   readRDS(
-    "~/projects/vacunas_brands/data/estudio_vacunasbrands_t_final_selected_manuscript.rds"
+    "~/projects/vacunas_brands/Rfiles/estudio_vacunasbrands_t_final_selected_manuscript.rds"
   )
 )
 ```
@@ -29,7 +29,7 @@ final_dataset <- (
 
 ```{r}
 # Lists the variables we are going to be including in table1 (except for the stratification variable)
-vars_in_table1<-c('age', 'desc_sexo', 'variant_period', 'asma', 'cardiopatia_isquemica', 'cirrosis_hepatica', 'diabetes', 'epoc', 'hepatopatia_cronica_excepto_cirrosis', 'hipertension', 'insuficiencia_cardiaca', 'insuficiencia_renal_cronica', 'vih', 'cancer_hematologico', 'cancer_organo_solido', 'n_prev_infecc', 'ultima_inmun_infecc_bin', 'vaccine_bin', 'clinical_event', 'eu_vaccines', 'rna_vaccines', 'combined_vaccines') 
+vars_in_table1<-c('age', 'desc_sexo', 'variant_period', 'asma', 'cardiopatia_isquemica', 'cirrosis_hepatica', 'diabetes', 'epoc', 'hepatopatia_cronica_excepto_cirrosis', 'hipertension', 'insuficiencia_cardiaca', 'insuficiencia_renal_cronica', 'vih', 'cancer_hematologico', 'cancer_organo_solido', 'n_prev_infecc', 'ultima_inmun_infecc_bin', 'vaccine_bin', 'clinical_event', 'eu_vaccines', 'eu_and_noneu_vaccines', 'rna_vaccines', 'combined_vaccines') 
 
 # Creates a dataset with only selected variables using our original dataset and generates an empty list for storing categorical variables
 table1_dataset <- final_dataset[,vars_in_table1]
