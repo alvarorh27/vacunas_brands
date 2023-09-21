@@ -820,7 +820,23 @@ function_combined_vaccines <- function(vaccines) {
     return("Moderna+Pfizer/BioNTech")
   } else if (vaccines == "AstraZeneca, Pfizer/BioNTech, Pfizer/BioNTech") {
     return("AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech")
-  } else {
+  } else if (vaccines == "Pfizer/BioNTech, Pfizer/BioNTech, NA") {
+    return("Pfizer/BioNTech+Pfizer/BioNTech")
+  } else if (vaccines == "Pfizer/BioNTech, Pfizer/BioNTech, Pfizer/BioNTech") {
+    return("Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech")
+  } else if (vaccines == "Moderna, Moderna, NA") {
+    return("Moderna+Moderna")
+  } else if (vaccines == "AstraZeneca, AstraZeneca, NA") {
+    return("AstraZeneca+AstraZeneca")
+  } else if (vaccines == "Pfizer/BioNTech, NA, NA") {
+    return("Pfizer/BioNTech")
+  } else if (vaccines == "Janssen, NA, NA") {
+    return("Janssen")
+  } else if (vaccines == "AstraZeneca, NA, NA") {
+    return("AstraZeneca")
+  } else if (vaccines == "Moderna, NA, NA") {
+    return("Moderna")
+  }  else {
     return("Other")
   }
 }
@@ -854,7 +870,8 @@ vacunas3 <- vacunas3 %>%
 # Create table to see most common shot combination
 table_3shots <- table(vacunas3$all_three_shots)
 tabla_ordenada <- table_3shots[order(-table_3shots)]
-tabla_ordenada
+write.table(tabla_ordenada, file = "~/projects/vacunas_brands/figures/combined_vaccines.csv", sep = ":", col.names = TRUE, row.names = TRUE, quote = FALSE)
+print(tabla_ordenada)
 
 saveRDS(
   vacunas3, 
@@ -873,6 +890,7 @@ gc()
 # Joining across datasets. >>
 # Last creations and mutations of variables.
 
+episodios_cmbd <- readRDS("~/projects/vacunas_brands/Rfiles/episodios_cmbd.rds")
 infect_covid5 <- readRDS("~/projects/vacunas_brands/Rfiles/infect_covid5.rds")
 poblacion_diana3 <- readRDS("~/projects/vacunas_brands/Rfiles/poblacion_diana3.rds")
 pupa2 <- readRDS("~/projects/vacunas_brands/Rfiles/pupa2.rds")
@@ -1088,7 +1106,10 @@ estudio_vacunas_t_final_selected %<>%
     across(c(hosp_stay_bin, icu_stay_bin), ~relevel(.x, ref = "No")),
     clinical_event = if_else(hosp_stay_bin=="No" & icu_stay_bin=="No" & mortality30d=="No", "No", "Sí"),
     clinical_event = as.factor(clinical_event),
-    clinical_event = relevel(clinical_event, ref = "No")
+    clinical_event = relevel(clinical_event, ref = "No"), 
+    clinical_event_nodeath = if_else(hosp_stay_bin=="No" & icu_stay_bin=="No", "No", "Sí"),
+    clinical_event_nodeath = as.factor(clinical_event_nodeath),
+    clinical_event_nodeath = relevel(clinical_event_nodeath, ref = "No")
   )
 
 
