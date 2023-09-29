@@ -129,13 +129,11 @@ ggplot(coef_pval_df_hadm_2,
   coord_flip() +
   labs(y="Odds Ratio", x=NULL) +
   ggtitle('Clinical Event') +
-  theme_minimal() +
+  theme_bw() +  # Configura el tema con fondo blanco
   theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
 
-
-
-# Save the plot as a PNG file
 ggsave("~/projects/vacunas_brands/figures/fp_euvaccines_clinicalevent.png", width = 6, height = 4, dpi = 300)
+
 ```
 # Analysis of variable eu_and_noneu_vaccines
 
@@ -169,7 +167,7 @@ variable_order <- rev(c(
   "Intercept", "Age", "Gender (male)", "Period of α predominance",
   "α-Δ transition period", "Period of Δ predominance", "Δ-Ό transition period",
   "Period of Ό predominance", "Number of Previous Infections (1)", "Number of Previous Infections (2)",  "Last vaccination/infection (<1 month ago)", "Last vaccination/infection (1-3 months ago)",
-  "Last vaccination/infection (3-6 months ago)", "Last vaccination/infection (>6 months ago)", "Asthma", "Ischemic heart disease", "Hepatic cirrhosis", "Diabetes", "Chronic Obstructive Pulmonary Disease (COPD)", "Chronic Hepatic Disease (except cirrhosis)", "Hypertension", "Heart failure", "Chronic kidney disease", "HIV+", "Haematologic cancer", "Solid organ cancer", "European Vaccines", "Non-European Vaccines", "Mix of European and non-European Vaccines"))
+  "Last vaccination/infection (3-6 months ago)", "Last vaccination/infection (>6 months ago)", "Asthma", "Ischemic heart disease", "Hepatic cirrhosis", "Diabetes", "Chronic Obstructive Pulmonary Disease (COPD)", "Chronic Hepatic Disease (except cirrhosis)", "Hypertension", "Heart failure", "Chronic kidney disease", "HIV+", "Haematologic cancer", "Solid organ cancer", "Western Vaccines", "Non-Western Vaccines", "Mix of Western and Non-Western Vaccines"))
 
 coef_pval_df_hadm_2 <- coef_pval_df_hadm_1  %>%
   mutate(
@@ -200,9 +198,9 @@ coef_pval_df_hadm_2 <- coef_pval_df_hadm_1  %>%
       term == "vihSí" ~ "HIV+",
       term == "cancer_hematologicoSí" ~ "Haematologic cancer",
       term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
-      term == "eu_and_noneu_vaccinesEU Vaccines" ~ "European Vaccines",
-      term == "eu_and_noneu_vaccinesNon-EU Vaccines" ~ "Non-European Vaccines",
-      term == "eu_and_noneu_vaccinesEU and non-EU Vaccines" ~ "Mix of European and non-European Vaccines",
+      term == "eu_and_noneu_vaccinesEU Vaccines" ~ "Western Vaccines",
+      term == "eu_and_noneu_vaccinesNon-EU Vaccines" ~ "Non-Western Vaccines",
+      term == "eu_and_noneu_vaccinesEU and non-EU Vaccines" ~ "Mix of Western and Non-Western Vaccines",
       TRUE ~ term
     ),
     term = factor(term, levels = variable_order)
@@ -220,14 +218,14 @@ ggplot(coef_pval_df_hadm_2,
   scale_y_log10(limits = c(0.01, 22)) +
   coord_flip() +
   labs(y="Odds Ratio", x=NULL) +
-  ggtitle('Clinical Event') +
-  theme_minimal() +
+  ggtitle('Composite endpoint') +
+  theme_bw() +
   theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))
 
 
 
 # Save the plot as a PNG file
-ggsave("~/projects/vacunas_brands/figures/fp_euvaccines_clinicalevent.png", width = 6, height = 4, dpi = 300)
+ggsave("~/projects/vacunas_brands/figures/fp_euandnoneu_vaccines_clinicalevent.png", width = 6, height = 4, dpi = 300)
 ```
 
 ## Logistic Regression of Clinical Event without mortality30d
@@ -519,7 +517,7 @@ htmlTable(coef_pval_df_hadm_1[,c("term","OR","OR_CI_lower","OR_CI_upper")], capt
 
 ```{r}
 variable_order <- rev(c(
-  "Intercept", "Age", "Gender (male)", "Period of α predominance",
+ "Intercept", "Age", "Gender (male)", "Period of α predominance",
   "α-Δ transition period", "Period of Δ predominance", "Δ-Ό transition period",
   "Period of Ό predominance", "Number of Previous Infections (1)", "Number of Previous Infections (2)",  "Last vaccination/infection (<1 month ago)", "Last vaccination/infection (1-3 months ago)",
   "Last vaccination/infection (3-6 months ago)", "Last vaccination/infection (>6 months ago)", "Asthma", "Ischemic heart disease", "Hepatic cirrhosis", "Diabetes", "Chronic Obstructive Pulmonary Disease (COPD)", "Chronic Hepatic Disease (except cirrhosis)", "Hypertension", "Heart failure", "Chronic kidney disease", "HIV+", "Haematologic cancer", "Solid organ cancer", "Pfizer/BioNTech+Pfizer/BioNTech", "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech", "Moderna+Moderna", "AstraZeneca+AstraZeneca", "Pfizer/BioNTech", "Janssen", "AstraZeneca", "Moderna", "AstraZeneca+AstraZeneca+Moderna", "AstraZeneca+AstraZeneca+Pfizer/BioNTech", "Pfizer/BioNTech+Pfizer/BioNTech+Moderna", "Janssen+Pfizer/BioNTech", "Moderna+Moderna+Pfizer/BioNTech","Janssen+Moderna",  "AstraZeneca+Pfizer/BioNTech", "Pfizer/BioNTech+Moderna", "Moderna+Pfizer/BioNTech", "AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech"))
@@ -589,7 +587,7 @@ ggplot(coef_pval_df_hadm_2,
   coord_flip() +
   labs(y="Odds Ratio", x=NULL) +
   ggtitle('Clinical Event') +
-  theme_minimal() +
+  theme_bw() +
   theme(legend.text = element_text(size = 10), legend.spacing.y = unit(1, "cm"))  
 
 # Save the plot as a PNG file
