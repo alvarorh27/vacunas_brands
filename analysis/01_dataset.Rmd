@@ -34,8 +34,6 @@ special_date <- function(number) {
 }
 
 convertir_valores <- function(x) {ifelse(x == -1, 0, 1)}
-
-`%notin%` <- Negate(`%in%`)
 ```
 
 # Data Loading and Wrangling
@@ -64,8 +62,6 @@ resultados_pruebas_COVID %<>% distinct()
 # TODO aplicar criterios de exclusión según orden razonado de carga de datasets!
 # TODO MODIFICAR EL PERIODO DE ESTUDIO. SOLO TENEMOS PCRS Y VACUNAS HASTA EL 31 DE MARZO DE 2022
 
-############################
-############################
 ############################
 ############################
 # 
@@ -527,8 +523,6 @@ saveRDS(
   file = "~/projects/vacunas_brands/Rfiles/pupa2.rds"
 )
 
-
-
 remove(pupa_dt)
 gc()
 ```
@@ -685,13 +679,13 @@ Hay varias vacunas de neumo y gripe por paciente.
 # Loading data, then mutating date variables and calculating timediff between vaccine and infection. >>
 # Vaccine names/brands should be levels, too. >>
 
+## Remove "COVID-19" from names of vaccines
 vacunas_raw <- vroom("/opt/datos_compartidos/vacunas_data/total/ENC_VACUNAS_VACUNAS_TODO.txt") %>%
   mutate(NOM_VACUNA = gsub("COVID-19 ", "", NOM_VACUNA)) %>%
   as.data.frame() %>% 
   distinct()
 
-# Creating vaccine vectors
-
+# Creating vaccine groups vectors
 covid_vaccines <- c("Abdala", "AstraZeneca", "CanSinoBIO", "CoronaVac (Sinovac Biotech)", "Covaxin", "Covishield", "HIPRA", "Janssen", "Moderna", "Novavax", "Pfizer/BioNTech", "Sinopharm", "Soberana", "Sputnik V")
 eu_covid_vaccines <- c("AstraZeneca", "Janssen", "Moderna", "Novavax", "Pfizer/BioNTech")
 noneu_covid_vaccines <- c("Abdala", "CanSinoBIO", "CoronaVac (Sinovac Biotech)", "Covaxin", "Covishield", "HIPRA", "Sinopharm", "Soberana", "Sputnik V")
@@ -740,16 +734,18 @@ vacunas3 <- setDT(vacunas2) %>%
   group_by(NUHSA_ENCRIPTADO, orden_infeccion) %>%
   summarise(
     n_vacunas_covid = n(),
+    ultima_vac_infecc_dias = unique(ultima_vac_infecc_dias),
     all_vaccines = paste(NOM_VACUNA, collapse = ", "),
     n_prev_infecc = unique(orden_infeccion) - 1,
     ultima_vac_infecc_meses_quant = unique(ultima_vac_infecc_meses_quant2),
-    ultima_inmun_infecc_meses_quant = unique(ultima_inmun_infecc_meses_quant2)
+    ultima_inmun_infecc_meses_quant = unique(ultima_inmun_infecc_meses_quant2), 
+    ultima_inmun_infecc_dias = unique(ultima_inmun_infecc_dias)
   ) %>% 
   ungroup() %>%
   separate(all_vaccines, into = paste0("shot_", 1:5), sep = ", ", extra = "drop", fill = "right") %>%
   mutate(all_three_shots = as.factor(paste(shot_1, shot_2, shot_3, sep = ", "))) %>%
   mutate(n_exposi = n_vacunas_covid + n_prev_infecc) %>% 
-  select(NUHSA_ENCRIPTADO, orden_infeccion, n_prev_infecc, n_vacunas_covid, shot_1:shot_3, all_three_shots, ultima_vac_infecc_meses_quant, ultima_inmun_infecc_meses_quant, n_exposi) %>%
+  select(NUHSA_ENCRIPTADO, orden_infeccion, n_prev_infecc, n_vacunas_covid, shot_1:shot_3, all_three_shots, ultima_vac_infecc_meses_quant, ultima_inmun_infecc_meses_quant, ultima_inmun_infecc_dias, ultima_vac_infecc_dias, n_exposi) %>%
   as.data.frame()
 
 # Defining function eu_vaccine categories. Group with european vaccines (single-branded shots)
@@ -842,7 +838,7 @@ function_combined_vaccines <- function(vaccines) {
 }
 
 
-# Adding variables applying previous functions  
+# Adding variables applying previous vaccine-grouping functions  
 vacunas3 <- vacunas3 %>%
   rowwise() %>%
   mutate(eu_vaccines = function_eu_vaccines(c(shot_1, shot_2, shot_3)),
@@ -854,7 +850,6 @@ vacunas3 <- vacunas3 %>%
     rna_vaccines = as.factor(rna_vaccines),
     combined_vaccines = as.factor(combined_vaccines), 
     eu_and_noneu_vaccines = as.factor(eu_and_noneu_vaccines)
-    
   ) %>%
   select(
     NUHSA_ENCRIPTADO:shot_3,
@@ -986,10 +981,10 @@ estudio_vacunas_t_final_selected %<>%
   mutate(
     n_prev_infecc = if_else(n_vacunas_covid == 0, orden_infeccion - 1, n_prev_infecc),
     n_exposi = if_else(n_vacunas_covid == 0, n_prev_infecc, n_exposi),
-    ultima_inmun_infecc_dias = if_else(
-      n_vacunas_covid == 0 & !is.na(prev_infect_date),
-      as.numeric(infect_covid_first_date - prev_infect_date),
-      999 # problema en la resta q no contempla el NA
+    ultima_inmun_infecc_dias = case_when(
+      n_vacunas_covid == 0 & !is.na(prev_infect_date) ~ as.numeric(infect_covid_first_date - prev_infect_date),
+      n_vacunas_covid == 0 & is.na(prev_infect_date) ~ as.numeric(NA),
+      TRUE ~ ultima_inmun_infecc_dias
     ),
     ultima_inmun_infecc_meses_quant = if_else(
       n_vacunas_covid == 0 & !is.na(prev_infect_date),
@@ -997,10 +992,10 @@ estudio_vacunas_t_final_selected %<>%
       ultima_inmun_infecc_meses_quant
     ),
     ultima_vac_infecc_bin = case_when(
-      n_vacunas_covid != 0 & ultima_vac_infecc_meses_quant < 1 ~ "Less than one month",
-      n_vacunas_covid != 0 & ultima_vac_infecc_meses_quant < 3 ~ "One to three months",
-      n_vacunas_covid != 0 & ultima_vac_infecc_meses_quant < 6 ~ "Three to six months",
-      n_vacunas_covid != 0 & ultima_vac_infecc_meses_quant >= 6 ~ "Six months or more",
+      n_vacunas_covid != 0 & ultima_vac_infecc_dias < 31 ~ "14-30",
+      n_vacunas_covid != 0 & ultima_vac_infecc_dias < 91 ~ "31-90",
+      n_vacunas_covid != 0 & ultima_vac_infecc_dias < 181 ~ "91-180",
+      n_vacunas_covid != 0 & ultima_vac_infecc_dias > 180 ~ ">180",
       TRUE ~ NA_character_,
     ),
     ultima_inmun_infecc_bin = case_when(
@@ -1013,8 +1008,9 @@ estudio_vacunas_t_final_selected %<>%
       (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_meses_quant >= 6 ~
         "Six months or more"
     )
-  ) %>% 
-  select(-ultima_inmun_infecc_dias)
+  )
+
+
 
 
 
@@ -1097,10 +1093,31 @@ estudio_vacunas_t_final_selected %<>%
     cancer_hematologico = as.factor(if_else(cancer_hematologico == 1, "Sí", "No")),
     cancer_hematologico = relevel(cancer_hematologico, ref = "No"),
     num_dias_uci = as.numeric(num_dias_uci),
+    ultima_inmun_infecc_bin = case_when(
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 14 ~ "0-14",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 31 ~ "14-30",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 61 ~ "31-60",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 91 ~ "61-90",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 121 ~ "91-120",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 151 ~ "121-150",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 181 ~ "151-180",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias > 180 ~ ">180",
+      TRUE ~ NA
+    ),
+    ultima_inmun_infecc_bin2 = case_when(
+      # (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 14 ~ "0-14",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 31 ~ "14-30",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 91 ~ "31-90",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias < 181 ~ "91-180",
+      (n_vacunas_covid != 0 |  !is.na(prev_infect_date)) & ultima_inmun_infecc_dias > 180 ~ ">180",
+      TRUE ~ NA
+    ),
     ultima_vac_infecc_bin = as.factor(ultima_vac_infecc_bin),
-    ultima_vac_infecc_bin = relevel(ultima_vac_infecc_bin, ref = "Less than one month"),
+    ultima_vac_infecc_bin = relevel(ultima_vac_infecc_bin, ref = "14-30"),
     ultima_inmun_infecc_bin = as.factor(ultima_inmun_infecc_bin),
-    ultima_inmun_infecc_bin = relevel(ultima_inmun_infecc_bin, ref = "Less than one month"),
+    ultima_inmun_infecc_bin = relevel(ultima_inmun_infecc_bin, ref = "14-30"),
+    ultima_inmun_infecc_bin2 = as.factor(ultima_inmun_infecc_bin2),
+    ultima_inmun_infecc_bin2 = relevel(ultima_inmun_infecc_bin2, ref = "14-30"),
     across(c(hosp_stay_bin, icu_stay_bin), ~if_else(.x == 1, "Sí", "No")),
     across(c(hosp_stay_bin, icu_stay_bin), ~as.factor(.x)),
     across(c(hosp_stay_bin, icu_stay_bin), ~relevel(.x, ref = "No")),
@@ -1505,9 +1522,6 @@ estudio_vacunas_t_final_selected %<>%
     across(comorb_no_cancer, ~if_else(.x == 1, "Sí", "No")),
     across(comorb_no_cancer, as.factor),
     across(comorb_no_cancer, ~relevel(.x, ref = "No")),
-    across(c(hosp_stay_bin, icu_stay_bin), ~if_else(.x == 1, "Sí", "No")),
-    across(c(hosp_stay_bin, icu_stay_bin), ~as.factor(.x)),
-    across(c(hosp_stay_bin, icu_stay_bin), ~relevel(.x, ref = "No")),
   )
 ```
 
@@ -1540,12 +1554,49 @@ estudio_vacunas_t_final_selected$age_fct_60years <- factor(estudio_vacunas_t_fin
 estudio_vacunas_t_final_selected$variant_period <- as.factor(estudio_vacunas_t_final_selected$variant_period)
 estudio_vacunas_t_final_selected$variant_period <- relevel(estudio_vacunas_t_final_selected$variant_period, ref = "Before α")
 
-estudio_vacunas_t_final_selected$ultima_inmun_infecc_bin <- factor(
-  estudio_vacunas_t_final_selected$ultima_inmun_infecc_bin,
-  levels = c(NA, "Less than one month", "One to three months", "Six months or more", "Three to six months" ),
-  labels = c("Ninguna", "Less than one month", "One to three months", "Six months or more", "Three to six months"),
+estudio_vacunas_t_final_selected$ultima_vac_infecc_bin <- factor(
+  estudio_vacunas_t_final_selected$ultima_vac_infecc_bin,
+  levels = c(NA, "14-30", "31-90", "91-180", ">180"),
+  labels = c("None", "14-30", "31-90", "91-180", ">180"),
   exclude = NULL  # This ensures that <NA> is treated as a regular level
 )
+
+estudio_vacunas_t_final_selected$ultima_inmun_infecc_bin <- factor(
+  estudio_vacunas_t_final_selected$ultima_inmun_infecc_bin,
+  levels = c(NA, "14-30", "31-60", "61-90", "91-120", "121-150", "151-180", ">180"),
+  labels = c("None", "14-30", "31-60", "61-90", "91-120", "121-150", "151-180", ">180"),
+  exclude = NULL  # This ensures that <NA> is treated as a regular level
+)
+
+estudio_vacunas_t_final_selected$ultima_inmun_infecc_bin2 <- factor(
+  estudio_vacunas_t_final_selected$ultima_inmun_infecc_bin2,
+  levels = c(NA, "14-30", "31-90", "91-180", ">180"),
+  labels = c("None", "14-30", "31-90", "91-180", ">180"),
+  exclude = NULL  # This ensures that <NA> is treated as a regular level
+)
+
+estudio_vacunas_t_final_selected %<>%
+  mutate(ultima_vac_infecc_bin = relevel(ultima_vac_infecc_bin, ref = "14-30"))
+
+estudio_vacunas_t_final_selected %<>%
+  mutate(ultima_inmun_infecc_bin = relevel(ultima_inmun_infecc_bin, ref = "14-30"))
+
+estudio_vacunas_t_final_selected %<>%
+  mutate(ultima_inmun_infecc_bin2 = relevel(ultima_inmun_infecc_bin2, ref = "14-30"))
+
+estudio_vacunas_t_final_selected %<>%
+  mutate(
+    ultima_inmun_infecc_bin = if_else(
+      ultima_inmun_infecc_bin == "121-150" | ultima_inmun_infecc_bin == "151-180",
+      "121-180",
+      ultima_inmun_infecc_bin
+    ),
+    ultima_inmun_infecc_bin = factor(
+      ultima_inmun_infecc_bin,
+      levels = c("None", "14-30", "31-60", "61-90", "91-120", "121-180", ">180"),
+    ),
+    ultima_inmun_infecc_bin = relevel(ultima_inmun_infecc_bin, ref = "14-30")
+  )
 ```
 
 # Saving RDS
