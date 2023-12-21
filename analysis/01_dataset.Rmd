@@ -822,6 +822,8 @@ function_combined_vaccines <- function(vaccines) {
     return("Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech")
   } else if (vaccines == "Moderna, Moderna, NA") {
     return("Moderna+Moderna")
+  } else if (vaccines == "Moderna, Moderna, Moderna") {
+    return("Moderna+Moderna+Moderna")
   } else if (vaccines == "AstraZeneca, AstraZeneca, NA") {
     return("AstraZeneca+AstraZeneca")
   } else if (vaccines == "Pfizer/BioNTech, NA, NA") {
@@ -1546,12 +1548,14 @@ estudio_vacunas_t_final_selected %<>%
 # Releveling factors
 
 ```{r}
+
 estudio_vacunas_t_final_selected$n_vacunas_covid <- factor(estudio_vacunas_t_final_selected$n_vacunas_covid, levels = c("Ninguna", "Una", "Dos", "Tres"))
 estudio_vacunas_t_final_selected$n_prev_infecc <- factor(estudio_vacunas_t_final_selected$n_prev_infecc, levels = c("Ninguna", "Uno", "Dos"))
 estudio_vacunas_t_final_selected$n_exposi <- factor(estudio_vacunas_t_final_selected$n_exposi, levels = c("Ninguna", "Una", "Dos", "Tres", "Cuatro", "Cinco"))
 estudio_vacunas_t_final_selected$orden_infeccion <- factor(estudio_vacunas_t_final_selected$orden_infeccion, levels = unique(estudio_vacunas_t_final_selected$orden_infeccion))
 estudio_vacunas_t_final_selected$age_fct_60years <- factor(estudio_vacunas_t_final_selected$age_fct_60years, levels = c("Menor de 60 años", "60 años o más"))
 estudio_vacunas_t_final_selected$variant_period <- as.factor(estudio_vacunas_t_final_selected$variant_period)
+estudio_vacunas_t_final_selected$variant_period <- factor(estudio_vacunas_t_final_selected$variant_period, levels = c("Before α", "α", "α/Δ transition", "Δ", "Δ/Ό transition", "Ό"))
 estudio_vacunas_t_final_selected$variant_period <- relevel(estudio_vacunas_t_final_selected$variant_period, ref = "Before α")
 
 estudio_vacunas_t_final_selected$ultima_vac_infecc_bin <- factor(
@@ -1597,6 +1601,20 @@ estudio_vacunas_t_final_selected %<>%
     ),
     ultima_inmun_infecc_bin = relevel(ultima_inmun_infecc_bin, ref = "14-30")
   )
+
+estudio_vacunas_t_final_selected$eu_vaccines <- factor(estudio_vacunas_t_final_selected$eu_vaccines, levels = c("None", "Pfizer/BioNTech", "Moderna", "AstraZeneca", "Janssen", "Other"))
+estudio_vacunas_t_final_selected$eu_vaccines <- relevel(estudio_vacunas_t_final_selected$eu_vaccines, ref = "None")
+
+estudio_vacunas_t_final_selected$eu_and_noneu_vaccines <- factor(estudio_vacunas_t_final_selected$eu_and_noneu_vaccines, levels = c("None", "EU Vaccines", "Non-EU Vaccines", "EU and non-EU Vaccines"))
+estudio_vacunas_t_final_selected$eu_and_noneu_vaccines <- relevel(estudio_vacunas_t_final_selected$eu_and_noneu_vaccines, ref = "None")
+
+estudio_vacunas_t_final_selected$rna_vaccines <- factor(estudio_vacunas_t_final_selected$rna_vaccines, levels = c("None", "Mix of EU RNA vaccines", "Mix of EU non-RNA vaccines", "Mix of EU RNA and non-RNA vaccines"))
+estudio_vacunas_t_final_selected$rna_vaccines <- relevel(estudio_vacunas_t_final_selected$rna_vaccines, ref = "None")
+
+estudio_vacunas_t_final_selected$combined_vaccines <- factor(estudio_vacunas_t_final_selected$combined_vaccines, levels = c("None", "Pfizer/BioNTech+Pfizer/BioNTech", "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech", "Moderna+Moderna", "AstraZeneca+AstraZeneca", "Pfizer/BioNTech", "Janssen", "AstraZeneca", "Moderna", "AstraZeneca+AstraZeneca+Moderna", "AstraZeneca+AstraZeneca+Pfizer/BioNTech", "Pfizer/BioNTech+Pfizer/BioNTech+Moderna", "Moderna+Moderna+Moderna", "Janssen+Pfizer/BioNTech", "Moderna+Moderna+Pfizer/BioNTech","Janssen+Moderna",  "AstraZeneca+Pfizer/BioNTech", "Other", "Pfizer/BioNTech+Moderna", "Moderna+Pfizer/BioNTech", "AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech"))
+estudio_vacunas_t_final_selected$combined_vaccines <- relevel(estudio_vacunas_t_final_selected$combined_vaccines, ref = "None")
+
+
 ```
 
 # Saving RDS
