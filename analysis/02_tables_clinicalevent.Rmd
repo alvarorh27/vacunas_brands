@@ -20,7 +20,7 @@ library(knitr)
 ```{r}
 final_dataset <- (
   readRDS(
-    "~/projects/vacunas_brands/Rfiles/estudio_vacunasbrands_t_final_selected_manuscript.rds"
+    "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands.rds"
   )
 )
 ```
@@ -68,6 +68,6 @@ table1_tbi<-print(CreateTableOne(vars = vars_in_table1, strata = stratifyby, fac
    kbl(caption = "Table 1 of base model: Clinical Event" , align = "c") %>%
    kable_classic_2(full_width = F, html_font = "Cambria") %>%
    add_header_above(c("", "", "No", "Yes", "", "")) %>%
-   save_kable("~/projects/vacunas_brands/figures/Table1/table1_clinicalevent.jpg", zoom = 10)
+   save_kable("~/projects/vacunas_brands_2025/figures/Table1/table1_clinicalevent.jpg", zoom = 10)
 
 ```

@@ -1,0 +1,41 @@
+---
+title: "04_EDA"
+output: html_document
+date: "2025-03-06"
+---
+
+# Environment
+
+```{r}
+library(dplyr)
+
+```
+
+# Load File
+
+```{r}
+final_dataset <- (
+  readRDS(
+    "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands.rds"
+  )
+)
+```
+
+# EDA
+
+```{r}
+#Look at 1-shot combination
+table_vac_1shot <- table(final_dataset[final_dataset$n_vacunas_covid == "Una", ]$shot_1)
+df_table_vac_1shot <- as.data.frame(table_vac_1shot) %>% 
+  filter(Freq > 0)
+
+#Look at 2-shot combination
+table_vac_2shot <- table(final_dataset[final_dataset$n_vacunas_covid == "Dos", ]$all_three_shots)
+df_table_vac_2shot <- as.data.frame(table_vac_2shot) %>% 
+  filter(Freq > 0)
+
+#Look at 3-shot combination
+table_vac_3shot <- table(final_dataset[final_dataset$n_vacunas_covid == "Tres", ]$all_three_shots)
+df_table_vac_3shot <- as.data.frame(table_vac_3shot) %>% 
+  filter(Freq > 0)
+```
