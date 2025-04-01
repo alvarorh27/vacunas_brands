@@ -19,8 +19,89 @@ library(broom)
 library(htmlTable)
 library(caret)
 library(kableExtra)
+library(magrittr)
 # library(webshot2)
+```
 
+# Vectors/Dictionaries
+```{r}
+
+dict_terms <- c(
+  "age" = "Age",
+  "desc_sexoHombre" = "Sex (male)",
+  "variant_periodα" = "Period of α predominance",
+  "variant_periodα/Δ transition" = "α-Δ transition period",
+  "variant_periodΔ" = "Period of Δ predominance",
+  "variant_periodΔ/Ό transition" = "Δ-Ό transition period",
+  "variant_periodΌ" = "Period of Ό predominance",
+  "asmaSí" = "Asthma",
+  "cardiopatia_isquemicaSí" = "Ischemic heart disease",
+  "cirrosis_hepaticaSí" = "Hepatic cirrhosis",
+  "diabetesSí" = "Diabetes",
+  "epocSí" = "Chronic Obstructive Pulmonary Disease (COPD)",
+  "hepatopatia_cronica_excepto_cirrosisSí" = "Chronic Hepatic Disease (except cirrhosis)",
+  "hipertensionSí" = "Hypertension",
+  "insuficiencia_cardiacaSí" = "Heart failure",
+  "insuficiencia_renal_cronicaSí" = "Chronic kidney disease",
+  "vihSí" = "HIV+",
+  "cancer_hematologicoSí" = "Haematologic cancer",
+  "cancer_organo_solidoSí" = "Solid organ cancer",
+  "ultima_inmun_infecc_binNone" = "No vaccination/infection",
+  "ultima_inmun_infecc_bin31-60" = "Last vaccination/infection (31-60 days ago)",
+  "ultima_inmun_infecc_bin61-90" = "Last vaccination/infection (61-90 days ago)",
+  "ultima_inmun_infecc_bin91-120" = "Last vaccination/infection (91-120 days ago)",
+  "ultima_inmun_infecc_bin121-180" = "Last vaccination/infection (121-180 days ago)",
+  "ultima_inmun_infecc_bin>180" = "Last vaccination/infection (>180 days ago)",
+  "vac_1shotAstraZeneca" = "AstraZeneca",
+  "vac_1shotJanssen" = "Janssen",
+  "vac_1shotModerna" = "Moderna",
+  "vac_1shotPfizer/BioNTech" = "Pfizer/BioNTech",
+  "vac_1shotOther" = "Other",
+  "vac_2shotAstraZeneca+AstraZeneca" = "AstraZeneca+AstraZeneca",
+  "vac_2shotAstraZeneca+Moderna" = "AstraZeneca+Moderna",
+  "vac_2shotAstraZeneca+Pfizer/BioNTech" = "AstraZeneca+Pfizer/BioNTech",
+  "vac_2shotJanssen+Moderna" = "Janssen+Moderna",
+  "vac_2shotJanssen+Pfizer/BioNTech" = "Janssen+Pfizer/BioNTech",
+  "vac_2shotModerna+Moderna" = "Moderna+Moderna",
+  "vac_2shotModerna+Pfizer/BioNTech" = "Moderna+Pfizer/BioNTech",
+  "vac_2shotPfizer/BioNTech+Moderna" = "Pfizer/BioNTech+Moderna",
+  "vac_2shotPfizer/BioNTech+Pfizer/BioNTech" = "Pfizer/BioNTech+Pfizer/BioNTech",
+  "vac_2shotOther" = "Other",
+  "vac_3shotAstraZeneca+AstraZeneca+Moderna" = "AstraZeneca+AstraZeneca+Moderna",
+  "vac_3shotAstraZeneca+AstraZeneca+Pfizer/BioNTech" = "AstraZeneca+AstraZeneca+Pfizer/BioNTech",
+  "vac_3shotAstraZeneca+Pfizer/BioNTech+Moderna" = "AstraZeneca+Pfizer/BioNTech+Moderna",
+  "vac_3shotAstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech" = "AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech",
+  "vac_3shotModerna+Moderna+Moderna" = "Moderna+Moderna+Moderna",
+  "vac_3shotModerna+Moderna+Pfizer/BioNTech" = "Moderna+Moderna+Pfizer/BioNTech",
+  "vac_3shotModerna+Pfizer/BioNTech+Pfizer/BioNTech" = "Moderna+Pfizer/BioNTech+Pfizer/BioNTech",
+  "vac_3shotPfizer/BioNTech+Pfizer/BioNTech+Moderna" = "Pfizer/BioNTech+Pfizer/BioNTech+Moderna",
+  "vac_3shotPfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech" = "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech"
+)
+
+  # Variable mapping and ordering
+variable_order <- rev(c(
+"Intercept", "Age", 
+    
+"AstraZeneca", "Janssen", "Moderna", "Pfizer/BioNTech",
+    
+"AstraZeneca+AstraZeneca", "AstraZeneca+Moderna", "AstraZeneca+Pfizer/BioNTech", "Janssen+Moderna", "Janssen+Pfizer/BioNTech", "Moderna+Moderna", "Moderna+Pfizer/BioNTech", "Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech",
+    
+"AstraZeneca+AstraZeneca+Moderna", "AstraZeneca+AstraZeneca+Pfizer/BioNTech", "AstraZeneca+Pfizer/BioNTech+Moderna", 
+"AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech", "Moderna+Moderna+Moderna", "Moderna+Moderna+Pfizer/BioNTech", "Moderna+Pfizer/BioNTech+Pfizer/BioNTech", "Pfizer/BioNTech+Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech", 
+    
+"No vaccination/infection", "Last vaccination/infection (31-60 days ago)", "Last vaccination/infection (61-90 days ago)", "Last vaccination/infection (91-120 days ago)", "Last vaccination/infection (121-180 days ago)", "Last vaccination/infection (>180 days ago)"
+  ))
+  
+# Independent variables (no spline)
+predictor_vars <- c("desc_sexo", "variant_period", "asma", "cardiopatia_isquemica", "cirrosis_hepatica", "diabetes", "epoc", "hepatopatia_cronica_excepto_cirrosis", "hipertension", "insuficiencia_cardiaca", "insuficiencia_renal_cronica", "vih", "cancer_hematologico", "cancer_organo_solido", "ultima_inmun_infecc_bin")
+# Independent variables (spline)
+spline_vars <- c("age")
+
+```
+
+# Functions
+```{r}
+# Extracts and formats logistic regression model coefficients into a data frame with OR and CI
 extract_coef_pval_OR <- function(model) {
   
   as.data.frame(tibble(term = names(model$coefficients),
@@ -34,7 +115,224 @@ extract_coef_pval_OR <- function(model) {
   )
   )
 } 
+
+# Function for Logistic Regression Analysis
+log_reg <- function(data, vaccine_variable, file_name, title, number_splines) {
+  
+  print('Logistic Regression of Clinical Event')
+  start_time <- Sys.time() 
+  print(Sys.time())
+  
+  ## Change independent variables for spline of age + last immunization days
+  if (number_splines == 2) {
+    # Add 'ultima_inmun_infecc_dias' to spline_vars
+    spline_vars <- c("age", "ultima_inmun_infecc_dias")
+    # And remove 'ultima_inmun_infecc_bin' from predictor_vars
+    predictor_vars <- predictor_vars[-which(predictor_vars == "ultima_inmun_infecc_bin")]
+  }
+  
+  ## Define spline terms
+  spline_terms <- paste0("s(", spline_vars, ")")
+  # Combine predictor variables with spline terms
+  all_predictors <- c(spline_terms, predictor_vars)
+  # Create formula
+  formula <- as.formula(paste("clinical_event", "~", paste(all_predictors, collapse = " + "), " + ", vaccine_variable))
+  
+  ## Fit logistic regression model
+  model <- gam(
+    formula,
+    data = data,
+    family = binomial(),
+    method = "REML"
+  )
+  
+  ## Extract odds ratios
+  model_df_1 <- extract_coef_pval_OR(model)
+  
+  model_df_2 <- model_df_1 %>%
+    mutate(
+      term = case_when(
+        term == "(Intercept)" ~ "Intercept",
+        TRUE ~ coalesce(dict_terms[term], term)  # Use dictionary mapping
+      ),
+      term = factor(term, levels = variable_order),
+      adverse_protective = case_when(
+        OR_CI_lower > 1 & OR_CI_upper > 1 ~ "Adverse",
+        OR_CI_lower < 1 & OR_CI_upper < 1 ~ "Protective",
+        TRUE ~ "Inconclusive"
+      ),
+      adverse_protective = factor(adverse_protective, levels = c("Adverse", "Protective", "Inconclusive"))
+    ) %>%
+    filter(term != "Intercept")
+  
+  ## Save OR table
+  write.csv(
+    model_df_2 %>%
+      arrange(factor(term, levels = rev(variable_order))),
+    paste0("~/projects/vacunas_brands_2025/data/OR_", file_name, ".csv"),
+    row.names = FALSE
+  )
+  
+  ## Generate HTML table
+  html_output <- htmlTable(
+    model_df_2 %>%
+      select(term, OR, OR_CI_lower, OR_CI_upper, adverse_protective) %>%
+      mutate(term = factor(term, levels = variable_order)) %>%
+      arrange(factor(term, levels = rev(variable_order))),
+  caption = paste0(title, " - Odds Ratio and Confidence Intervals for composite outcome-associated Factors")
+)
+  print(html_output)
+  
+  ## Create the plot with ggplot2
+  plot <- ggplot(model_df_2, 
+                 aes(x = OR, xmin = OR_CI_lower, xmax = OR_CI_upper, y = term, color = adverse_protective)) +
+    geom_point(size = 2, na.rm = TRUE) +  
+    geom_errorbarh(height = 0.2, na.rm = TRUE) +
+    geom_vline(xintercept = 1, linetype = "dashed") +
+    labs(x = "Odds Ratio", y = NULL, title = paste0("Logistic Regression. Odds Ratio and Confidence Intervals \nfor Composite Outcome-associated Factors.\n", title)) +
+    theme_minimal() +
+    scale_color_manual(
+      values = c("Adverse" = "#c0392b", "Protective" = "#27ae60", "Inconclusive" = "gray70"),
+      limits = c("Adverse", "Protective", "Inconclusive"), #ensure all levels appear in legend
+      labels = c("Adverse", "Protective", "Inconclusive"),
+      name = "Effect on Outcome",
+      guide = guide_legend(override.aes = list(size = 3)) 
+    ) +
+    scale_x_continuous(limits = c(0, 5)) +
+    theme(
+      plot.background = element_rect(fill = "white"),
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      plot.title = element_text(hjust = 0.5),
+      plot.title.position = "plot",
+      legend.position = "top",
+      axis.ticks = element_blank(),
+      axis.text.x = element_text(color = "#2c3e50"),
+      axis.text.y = element_text(color = "#2c3e50"))
+  
+  print(plot)
+
+  
+  ## Save plot
+  ggsave(
+    filename = paste0("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_", file_name, ".png"),
+    plot = plot, 
+    width = 8, 
+    height = 6, 
+    dpi = 300
+  )
+  
+  ## Función para extraer los datos del modelo GAM y calcular probabilidades
+  extract_gam_data <- function(model, spline_var) {
+    gam_plot_data <- plot(model, term = spline_var, pages = 1)[[1]] # Use term argument
+    x <- gam_plot_data$x
+    fit <- gam_plot_data$fit
+    se <- gam_plot_data$se
+  
+    prob <- exp(fit) / (1 + exp(fit)) * 100
+    lower <- exp(fit - 2 * se) / (1 + exp(fit - 2 * se)) * 100
+    upper <- exp(fit + 2 * se) / (1 + exp(fit + 2 * se)) * 100
+  
+    data.frame(spline_var = x, probability = prob, lower = lower, upper = upper)
+  }
+  
+  ## Function to create a GAM plot
+  create_gam_plot <- function(data, title, spline_var) {
+    ggplot(data, aes_string(x = "spline_var", y = "probability")) +
+      geom_ribbon(aes_string(ymin = "lower", ymax = "upper"), alpha = 0.3) +
+      geom_line() +
+      labs(title = title, x = spline_var, y = "Probability (%)") +
+      ylim(0, 100) +
+      theme_minimal()
+  }
+  
+  # Generate GAM plots for each spline_var
+  for (spline_var in spline_vars) {
+    plot_data <- extract_gam_data(model, spline_var)
+    plot <- create_gam_plot(plot_data, paste("GAM Plot for", spline_var), spline_var)
+    print(plot)
+  
+    ## Save GAM plot
+    ggsave(
+      filename = paste0("~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_", file_name, "_", spline_var, ".png"),
+      plot = plot,
+      width = 8,
+      height = 6,
+      dpi = 300
+    )
+  }
+
+  time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
+  print(paste("Time to run:", time_elapsed, "minutes"))
+}
+
 ```
+
+# GAM plot
+```{r}
+
+# Ajuste del modelo GAM
+model <- gam(
+  clinical_event ~ s(ultima_inmun_infecc_dias) + s(age) + vac_3shot + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc + hepatopatia_cronica_excepto_cirrosis + hipertension + 
+    insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido,
+  data = final_dataset,
+  family = binomial(),
+  method = "REML"
+)
+
+summary(model)
+
+## Función para extraer los datos del modelo GAM y calcular probabilidades
+extract_gam_data <- function(model, spline_var) {
+  gam_plot_data <- plot(model, term = spline_var, pages = 1)[[1]] # Use term argument
+  x <- gam_plot_data$x
+  fit <- gam_plot_data$fit
+  se <- gam_plot_data$se
+
+  prob <- exp(fit) / (1 + exp(fit)) * 100
+  lower <- exp(fit - 2 * se) / (1 + exp(fit - 2 * se)) * 100
+  upper <- exp(fit + 2 * se) / (1 + exp(fit + 2 * se)) * 100
+
+  data.frame(spline_var = x, probability = prob, lower = lower, upper = upper)
+}
+
+## Función para crear el gráfico GAM
+create_gam_plot <- function(data, title, spline_var) {
+  ggplot(data, aes_string(x = "spline_var", y = "probability")) +
+    geom_ribbon(aes_string(ymin = "lower", ymax = "upper"), alpha = 0.3) +
+    geom_line() +
+    labs(title = title, x = spline_var, y = "Probability (%)") +
+    ylim(0, 100) +
+    theme_minimal()
+}
+
+# Especificar el nombre de la variable spline
+spline_var <- "ultima_inmun_infecc_dias"  # Aquí puedes cambiar la variable de spline si es diferente
+
+# Generar los datos para el gráfico
+plot_data <- extract_gam_data(model, spline_var)
+
+# Crear el gráfico
+plot <- create_gam_plot(plot_data, paste("GAM Plot for", spline_var), spline_var)
+
+# Imprimir el gráfico
+print(plot)
+
+# Guardar el gráfico
+ggsave(
+  filename = paste0("~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_", "vac_3shot_2spline", "_", spline_var, ".png"),
+  plot = plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+
+
+
+```
+
+
 
 # Load File
 
@@ -44,386 +342,84 @@ final_dataset <- (
     "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands.rds"
   )
 )
+
+print(nrow(final_dataset))
+
+# Filtrar los pacientes cuya edad es mayor a 100 años
+final_dataset %<>%
+  filter(age < 100)
+
+print(nrow(final_dataset))
+
+
+
 ```
 
-# Analysis of variable vac_1shot
+# Spline for age
 
-## Logistic Regression of Clinical Event
-
-### Fitting the model
-
+## Analysis of variable vac_1shot
 ```{r}
-print('Logistic Regression of Clinical Event')
-print(Sys.time())
-logreg_hadm <- gam(
-   clinical_event ~ s(age) + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + ultima_inmun_infecc_bin + vac_1shot,
-  data =  final_dataset,
-  family=binomial(), 
-  method = "REML")
-print(Sys.time())
-```
-
-### Odds ratio
-
-```{r fig.height=16, fig.width=10}
-coef_pval_df_hadm_1 <- extract_coef_pval_OR(logreg_hadm)
+log_reg(
+  data = final_dataset, 
+  vaccine_variable = "vac_1shot", 
+  file_name = "vac_1shot_1spline",
+  title = "1-shot Regimen - Spline for Age", 
+  number_splines = 1)
 
 ```
-
-### Forest Plot
-
+## Analysis of variable vac_2shot
 ```{r}
-variable_order <- rev(c(
-  "Intercept", "AstraZeneca", "Janssen", "Moderna", "Pfizer/BioNTech",
-  "No vaccination/infection", "Last vaccination/infection (>31-60 days ago)", "Last vaccination/infection (>61-90 days ago)", "Last vaccination/infection (>91-120 days ago)", "Last vaccination/infection (>121-180 days ago)", "Last vaccination/infection (>180 days ago)"))
-
-coef_pval_df_hadm_2 <- coef_pval_df_hadm_1  %>%
-  mutate(
-    term = case_when(
-      term == "(Intercept)" ~ "Intercept",
-      term == "age" ~ "Age",
-      term == "desc_sexoHombre" ~ "Sex (male)",
-      term == "variant_periodα" ~ "Period of α predominance",
-      term == "variant_periodα/Δ transition" ~ "α-Δ transition period",
-      term == "variant_periodΔ" ~ "Period of Δ predominance",
-      term == "variant_periodΔ/Ό transition" ~ "Δ-Ό transition period",
-      term == "variant_periodΌ" ~ "Period of Ό predominance",
-      term == "n_prev_infeccUno" ~ "Number of Previous Infections (1)",
-      term == "n_prev_infeccDos" ~ "Number of Previous Infections (2)",
-      term == "asmaSí" ~ "Asthma",
-      term == "cardiopatia_isquemicaSí" ~ "Ischemic heart disease",
-      term == "cirrosis_hepaticaSí" ~ "Hepatic cirrhosis",
-      term == "diabetesSí" ~ "Diabetes",
-      term == "epocSí" ~ "Chronic Obstructive Pulmonary Disease (COPD)",
-      term == "hepatopatia_cronica_excepto_cirrosisSí" ~ "Chronic Hepatic Disease (except cirrhosis)",
-      term == "hipertensionSí" ~ "Hypertension",
-      term == "insuficiencia_cardiacaSí" ~ "Heart failure",
-      term == "insuficiencia_renal_cronicaSí" ~ "Chronic kidney disease",
-      term == "vihSí" ~ "HIV+",
-      term == "cancer_hematologicoSí" ~ "Haematologic cancer",
-      term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
-      term == "ultima_inmun_infecc_binNone" ~ "No vaccination/infection",
-      term == "ultima_inmun_infecc_bin31-60" ~ "Last vaccination/infection (>31-60 days ago)",
-      term == "ultima_inmun_infecc_bin31-60" ~ "Last vaccination/infection (>31-60 days ago)",
-      term == "ultima_inmun_infecc_bin61-90" ~ "Last vaccination/infection (>61-90 days ago)",
-      term == "ultima_inmun_infecc_bin91-120" ~ "Last vaccination/infection (>91-120 days ago)",
-      term == "ultima_inmun_infecc_bin121-180" ~ "Last vaccination/infection (>121-180 days ago)",
-      term == "ultima_inmun_infecc_bin>180" ~ "Last vaccination/infection (>180 days ago)",
-      term == "vac_1shotAstraZeneca" ~ "AstraZeneca",
-      term == "vac_1shotJanssen" ~ "Janssen",
-      term == "vac_1shotModerna" ~ "Moderna",
-      term == "vac_1shotPfizer/BioNTech" ~ "Pfizer/BioNTech",
-      term == "vac_1shotOther" ~ "Other",
-      TRUE ~ term
-    ),
-    term = factor(term, levels = variable_order), 
-    adverse_protective = case_when(
-           OR_CI_lower > 1 & OR_CI_upper > 1 ~ "Adverse",
-           OR_CI_lower < 1 & OR_CI_upper < 1 ~ "Protective",
-           TRUE ~ "Inconclusive"
-    ),
-    adverse_protective = factor(adverse_protective, levels = c("Adverse", "Protective", "Inconclusive"))) %>%
-  filter(term != "Intercept")
-
-# Save OR table and print in console
-write.csv(coef_pval_df_hadm_2,'~/projects/vacunas_brands_2025/data/oddsratio_vac_1shot_clinicalevent.csv')
-htmlTable(coef_pval_df_hadm_2[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "1-shot Regimen - Odds Ratio and Confidence Intervals for composite outcome-associated Factors")
-
-# # Export OR table as kable 
-# or_table <- coef_pval_df_hadm_2 %>%
-#   select(term, OR, OR_CI_lower, OR_CI_upper) %>%
-#   mutate(
-#     term = factor(term, levels = variable_order),
-#     OR_CI_upper = ifelse(OR_CI_upper <= 100, sprintf("%.2f", OR_CI_upper), sprintf("%.2e", OR_CI_upper))) %>%
-#   arrange(desc(term)) %>%
-#   kbl(caption = "1-shot Regimens - Odds Ratio and Confidence Intervals for composite outcome-associated Factors" , align = "c") %>%
-#   kable_classic_2(full_width = F, html_font = "Cambria") %>%
-#   save_kable("~/projects/vacunas_brands_2025/figures/OR/OR_vac_1shot_clinicalevent.jpg",
-#              zoom = 10)
-
-# Build the Forest plot
-ggplot(coef_pval_df_hadm_2, 
-       aes(x = OR, xmin = OR_CI_lower, xmax = OR_CI_upper, y = term)) +
-  geom_point(size = 2, aes(color = adverse_protective)) +
-  geom_errorbarh(height = 0.2, aes(color = adverse_protective)) +
-  geom_vline(xintercept = 1, linetype = "dashed") +
-  labs(x = "Odds Ratio", y = NULL, title = "Logistic Regression. Odds Ratio and Confidence Intervals \nfor Composite Outcome-associated Factors. \n1-shot Regimen") +
-  theme_minimal() +
-  scale_color_manual(
-    values = c("#c0392b", "#27ae60", "gray70"),
-    labels = c("Adverse", "Protective", "Inconclusive"),
-    name = "Effect on Outcome") +
-  scale_x_continuous(limits = c(0, 5)) +
-  theme(
-    plot.background = element_rect(fill = "white"),
-    panel.grid.major.y = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    plot.title = element_text(hjust = 0.5),
-    plot.title.position = "plot",
-    legend.position = "top",
-    axis.ticks = element_blank(),
-    axis.text.x = element_text(color = "#2c3e50"),
-    axis.text.y = element_text(color = "#2c3e50"
-    ))
-
-ggsave("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_vac_1shot_clinicalevent.png", width = 8, height = 6, dpi = 300)
+log_reg(
+  data = final_dataset, 
+  vaccine_variable = "vac_2shot",
+  file_name = "vac_2shot_1spline",
+  title = "2-shot Regimen - Spline for Age", 
+  number_splines = 1)
 
 ```
 
-# Analysis of variable vac_2shot
-
-## Logistic Regression of Clinical Event
-
-### Fitting the model
-
+## Analysis of variable vac_3shot
 ```{r}
-print('Logistic Regression of Clinical Event')
-print(Sys.time())
-logreg_hadm <- gam(
-   clinical_event ~ s(age) + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + ultima_inmun_infecc_bin + vac_2shot,
-  data =  final_dataset,
-  family=binomial(), 
-  method = "REML")
-print(Sys.time())
-```
-
-### Odds ratio
-
-```{r fig.height=16, fig.width=10}
-coef_pval_df_hadm_1 <- extract_coef_pval_OR(logreg_hadm)
+log_reg(
+  data = final_dataset, 
+  vaccine_variable = "vac_3shot",
+  file_name = "vac_3shot_1spline",  
+  title = "3-shot Regimen - Spline for Age", 
+  number_splines = 1)
 
 ```
 
-### Forest Plot
+# Spline for age and last immunization days
 
+## Analysis of variable vac_1shot
 ```{r}
-variable_order <- rev(c(
-  "Intercept", "AstraZeneca+AstraZeneca", "AstraZeneca+Moderna", "AstraZeneca+Pfizer/BioNTech", "Janssen+Moderna", "Janssen+Pfizer/BioNTech", "Moderna+Moderna", "Moderna+Pfizer/BioNTech", "Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech",
- "No vaccination/infection", "Last vaccination/infection (>31-60 days ago)", "Last vaccination/infection (>61-90 days ago)", "Last vaccination/infection (>91-120 days ago)", "Last vaccination/infection (>121-180 days ago)", "Last vaccination/infection (>180 days ago)"))
-
-coef_pval_df_hadm_2 <- coef_pval_df_hadm_1  %>%
-  mutate(
-    term = case_when(
-      term == "(Intercept)" ~ "Intercept",
-      term == "age" ~ "Age",
-      term == "desc_sexoHombre" ~ "Sex (male)",
-      term == "variant_periodα" ~ "Period of α predominance",
-      term == "variant_periodα/Δ transition" ~ "α-Δ transition period",
-      term == "variant_periodΔ" ~ "Period of Δ predominance",
-      term == "variant_periodΔ/Ό transition" ~ "Δ-Ό transition period",
-      term == "variant_periodΌ" ~ "Period of Ό predominance",
-      term == "n_prev_infeccUno" ~ "Number of Previous Infections (1)",
-      term == "n_prev_infeccDos" ~ "Number of Previous Infections (2)",
-      term == "asmaSí" ~ "Asthma",
-      term == "cardiopatia_isquemicaSí" ~ "Ischemic heart disease",
-      term == "cirrosis_hepaticaSí" ~ "Hepatic cirrhosis",
-      term == "diabetesSí" ~ "Diabetes",
-      term == "epocSí" ~ "Chronic Obstructive Pulmonary Disease (COPD)",
-      term == "hepatopatia_cronica_excepto_cirrosisSí" ~ "Chronic Hepatic Disease (except cirrhosis)",
-      term == "hipertensionSí" ~ "Hypertension",
-      term == "insuficiencia_cardiacaSí" ~ "Heart failure",
-      term == "insuficiencia_renal_cronicaSí" ~ "Chronic kidney disease",
-      term == "vihSí" ~ "HIV+",
-      term == "cancer_hematologicoSí" ~ "Haematologic cancer",
-      term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
-      term == "ultima_inmun_infecc_binNone" ~ "No vaccination/infection",
-      term == "ultima_inmun_infecc_bin31-60" ~ "Last vaccination/infection (>31-60 days ago)",
-      term == "ultima_inmun_infecc_bin31-60" ~ "Last vaccination/infection (>31-60 days ago)",
-      term == "ultima_inmun_infecc_bin61-90" ~ "Last vaccination/infection (>61-90 days ago)",
-      term == "ultima_inmun_infecc_bin91-120" ~ "Last vaccination/infection (>91-120 days ago)",
-      term == "ultima_inmun_infecc_bin121-180" ~ "Last vaccination/infection (>121-180 days ago)",
-      term == "ultima_inmun_infecc_bin>180" ~ "Last vaccination/infection (>180 days ago)",
-      term == "vac_2shotAstraZeneca+AstraZeneca" ~ "AstraZeneca+AstraZeneca",
-      term == "vac_2shotAstraZeneca+Moderna" ~ "AstraZeneca+Moderna",
-      term == "vac_2shotAstraZeneca+Pfizer/BioNTech" ~ "AstraZeneca+Pfizer/BioNTech",
-      term == "vac_2shotJanssen+Moderna" ~ "Janssen+Moderna",
-      term == "vac_2shotJanssen+Pfizer/BioNTech" ~ "Janssen+Pfizer/BioNTech",
-      term == "vac_2shotModerna+Moderna" ~ "Moderna+Moderna",
-      term == "vac_2shotModerna+Pfizer/BioNTech" ~ "Moderna+Pfizer/BioNTech",
-      term == "vac_2shotPfizer/BioNTech+Moderna" ~ "Pfizer/BioNTech+Moderna",
-      term == "vac_2shotPfizer/BioNTech+Pfizer/BioNTech" ~ "Pfizer/BioNTech+Pfizer/BioNTech",
-      term == "vac_2shotOther" ~ "Other",
-      TRUE ~ term
-    ),
-    term = factor(term, levels = variable_order), 
-    adverse_protective = case_when(
-           OR_CI_lower > 1 & OR_CI_upper > 1 ~ "Adverse",
-           OR_CI_lower < 1 & OR_CI_upper < 1 ~ "Protective",
-           TRUE ~ "Inconclusive"
-    ),
-    adverse_protective = factor(adverse_protective, levels = c("Adverse", "Protective", "Inconclusive"))) %>%
-  filter(term != "Intercept")
-
-# Save OR table and print in console
-write.csv(coef_pval_df_hadm_2,'~/projects/vacunas_brands_2025/data/oddsratio_vac_2shot_clinicalevent.csv')
-htmlTable(coef_pval_df_hadm_2[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "2-shot Regimen - Odds Ratio and Confidence Intervals for composite outcome-associated Factors")
-
-# # Export OR table as kable 
-# or_table <- coef_pval_df_hadm_2 %>%
-#   select(term, OR, OR_CI_lower, OR_CI_upper) %>%
-#   mutate(
-#     term = factor(term, levels = variable_order),
-#     OR_CI_upper = ifelse(OR_CI_upper <= 100, sprintf("%.2f", OR_CI_upper), sprintf("%.2e", OR_CI_upper))) %>%
-#   arrange(desc(term)) %>%
-#   kbl(caption = "2-shot Regimens - Odds Ratio and Confidence Intervals for composite outcome-associated Factors" , align = "c") %>%
-#   kable_classic_2(full_width = F, html_font = "Cambria") %>%
-#   save_kable("~/projects/vacunas_brands_2025/figures/OR/OR_vac_2shot_clinicalevent.jpg",
-#              zoom = 10)
-
-# Build the Forest plot
-ggplot(coef_pval_df_hadm_2, 
-       aes(x = OR, xmin = OR_CI_lower, xmax = OR_CI_upper, y = term)) +
-  geom_point(size = 2, aes(color = adverse_protective)) +
-  geom_errorbarh(height = 0.2, aes(color = adverse_protective)) +
-  geom_vline(xintercept = 1, linetype = "dashed") +
-  labs(x = "Odds Ratio", y = NULL, title = "Logistic Regression. Odds Ratio and Confidence Intervals \nfor Composite Outcome-associated Factors. \n2-shot Regimen") +
-  theme_minimal() +
-  scale_color_manual(
-    values = c("#c0392b", "#27ae60", "gray70"),
-    labels = c("Adverse", "Protective", "Inconclusive"),
-    name = "Effect on Outcome") +
-  scale_x_continuous(limits = c(0, 5)) +
-  theme(
-    plot.background = element_rect(fill = "white"),
-    panel.grid.major.y = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    plot.title = element_text(hjust = 0.5),
-    plot.title.position = "plot",
-    legend.position = "top",
-    axis.ticks = element_blank(),
-    axis.text.x = element_text(color = "#2c3e50"),
-    axis.text.y = element_text(color = "#2c3e50"
-    ))
-
-ggsave("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_vac_2shot_clinicalevent.png", width = 8, height = 6, dpi = 300)
+log_reg(
+  data = final_dataset, 
+  vaccine_variable = "vac_1shot", 
+  file_name = "vac_1shot_2spline",
+  title = "1-shot Regimen - Splines for Age and Last Immunization", 
+  number_splines = 2)
 
 ```
 
-# Analysis of variable vac_3shot
-
-## Logistic Regression of Clinical Event
-
-### Fitting the model
-
+## Analysis of variable vac_2shot
 ```{r}
-print('Logistic Regression of Clinical Event')
-print(Sys.time())
-logreg_hadm <- gam(
-   clinical_event ~ s(age) + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc +  hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido + ultima_inmun_infecc_bin + vac_3shot,
-  data =  final_dataset,
-  family=binomial(), 
-  method = "REML")
-print(Sys.time())
-```
-
-### Odds ratio
-
-```{r fig.height=16, fig.width=10}
-coef_pval_df_hadm_1 <- extract_coef_pval_OR(logreg_hadm)
+log_reg(
+  data = final_dataset, 
+  vaccine_variable = "vac_2shot",
+  file_name = "vac_2shot_2spline",
+  title = "2-shot Regimen - Splines for Age and Last Immunization", 
+  number_splines = 2)
 
 ```
 
-### Forest Plot
-
+## Analysis of variable vac_3shot
 ```{r}
-variable_order <- rev(c(
-  "Intercept", "AstraZeneca+AstraZeneca+Moderna", "AstraZeneca+AstraZeneca+Pfizer/BioNTech", "AstraZeneca+Pfizer/BioNTech+Moderna", 
-"AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech", "Moderna+Moderna+Moderna", "Moderna+Moderna+Pfizer/BioNTech", "Moderna+Pfizer/BioNTech+Pfizer/BioNTech", "Pfizer/BioNTech+Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech", 
- "No vaccination/infection", "Last vaccination/infection (>31-60 days ago)", "Last vaccination/infection (>61-90 days ago)", "Last vaccination/infection (>91-120 days ago)", "Last vaccination/infection (>121-180 days ago)", "Last vaccination/infection (>180 days ago)"))
-
-coef_pval_df_hadm_2 <- coef_pval_df_hadm_1  %>%
-  mutate(
-    term = case_when(
-      term == "(Intercept)" ~ "Intercept",
-      term == "age" ~ "Age",
-      term == "desc_sexoHombre" ~ "Sex (male)",
-      term == "variant_periodα" ~ "Period of α predominance",
-      term == "variant_periodα/Δ transition" ~ "α-Δ transition period",
-      term == "variant_periodΔ" ~ "Period of Δ predominance",
-      term == "variant_periodΔ/Ό transition" ~ "Δ-Ό transition period",
-      term == "variant_periodΌ" ~ "Period of Ό predominance",
-      term == "n_prev_infeccUno" ~ "Number of Previous Infections (1)",
-      term == "n_prev_infeccDos" ~ "Number of Previous Infections (2)",
-      term == "asmaSí" ~ "Asthma",
-      term == "cardiopatia_isquemicaSí" ~ "Ischemic heart disease",
-      term == "cirrosis_hepaticaSí" ~ "Hepatic cirrhosis",
-      term == "diabetesSí" ~ "Diabetes",
-      term == "epocSí" ~ "Chronic Obstructive Pulmonary Disease (COPD)",
-      term == "hepatopatia_cronica_excepto_cirrosisSí" ~ "Chronic Hepatic Disease (except cirrhosis)",
-      term == "hipertensionSí" ~ "Hypertension",
-      term == "insuficiencia_cardiacaSí" ~ "Heart failure",
-      term == "insuficiencia_renal_cronicaSí" ~ "Chronic kidney disease",
-      term == "vihSí" ~ "HIV+",
-      term == "cancer_hematologicoSí" ~ "Haematologic cancer",
-      term == "cancer_organo_solidoSí" ~ "Solid organ cancer",
-      term == "ultima_inmun_infecc_binNone" ~ "No vaccination/infection",
-      term == "ultima_inmun_infecc_bin31-60" ~ "Last vaccination/infection (>31-60 days ago)",
-      term == "ultima_inmun_infecc_bin31-60" ~ "Last vaccination/infection (>31-60 days ago)",
-      term == "ultima_inmun_infecc_bin61-90" ~ "Last vaccination/infection (>61-90 days ago)",
-      term == "ultima_inmun_infecc_bin91-120" ~ "Last vaccination/infection (>91-120 days ago)",
-      term == "ultima_inmun_infecc_bin121-180" ~ "Last vaccination/infection (>121-180 days ago)",
-      term == "ultima_inmun_infecc_bin>180" ~ "Last vaccination/infection (>180 days ago)",
-      term == "vac_3shotAstraZeneca+AstraZeneca+Moderna" ~ "AstraZeneca+AstraZeneca+Moderna",
-      term == "vac_3shotAstraZeneca+AstraZeneca+Pfizer/BioNTech" ~ "AstraZeneca+AstraZeneca+Pfizer/BioNTech",
-      term == "vac_3shotAstraZeneca+Pfizer/BioNTech+Moderna" ~ "AstraZeneca+Pfizer/BioNTech+Moderna",
-      term == "vac_3shotAstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech" ~ "AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech",
-      term == "vac_3shotModerna+Moderna+Moderna" ~ "Moderna+Moderna+Moderna",
-      term == "vac_3shotModerna+Moderna+Pfizer/BioNTech" ~ "Moderna+Moderna+Pfizer/BioNTech",
-      term == "vac_3shotModerna+Pfizer/BioNTech+Pfizer/BioNTech" ~ "Moderna+Pfizer/BioNTech+Pfizer/BioNTech",
-      term == "vac_3shotPfizer/BioNTech+Pfizer/BioNTech+Moderna" ~ "Pfizer/BioNTech+Pfizer/BioNTech+Moderna",
-      term == "vac_3shotPfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech" ~ "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech",
-      TRUE ~ term
-    ),
-    term = factor(term, levels = variable_order), 
-    adverse_protective = case_when(
-           OR_CI_lower > 1 & OR_CI_upper > 1 ~ "Adverse",
-           OR_CI_lower < 1 & OR_CI_upper < 1 ~ "Protective",
-           TRUE ~ "Inconclusive"
-    ),
-    adverse_protective = factor(adverse_protective, levels = c("Adverse", "Protective", "Inconclusive"))) %>%
-  filter(term != "Intercept")
-
-# Save OR table and print in console
-write.csv(coef_pval_df_hadm_2,'~/projects/vacunas_brands_2025/data/oddsratio_vac_3shot_clinicalevent.csv')
-htmlTable(coef_pval_df_hadm_2[,c("term","OR","OR_CI_lower","OR_CI_upper")], caption = "3-shot Regimen - Odds Ratio and Confidence Intervals for composite outcome-associated Factors")
-
-# # Export OR table as kable 
-# or_table <- coef_pval_df_hadm_2 %>%
-#   select(term, OR, OR_CI_lower, OR_CI_upper) %>%
-#   mutate(
-#     term = factor(term, levels = variable_order),
-#     OR_CI_upper = ifelse(OR_CI_upper <= 100, sprintf("%.2f", OR_CI_upper), sprintf("%.2e", OR_CI_upper))) %>%
-#   arrange(desc(term)) %>%
-#   kbl(caption = "3-shot Regimens - Odds Ratio and Confidence Intervals for composite outcome-associated Factors" , align = "c") %>%
-#   kable_classic_2(full_width = F, html_font = "Cambria") %>%
-#   save_kable("~/projects/vacunas_brands_2025/figures/OR/OR_vac_3shot_clinicalevent.jpg",
-#              zoom = 10)
-
-# Build the Forest plot
-ggplot(coef_pval_df_hadm_2, 
-       aes(x = OR, xmin = OR_CI_lower, xmax = OR_CI_upper, y = term)) +
-  geom_point(size = 2, aes(color = adverse_protective)) +
-  geom_errorbarh(height = 0.2, aes(color = adverse_protective)) +
-  geom_vline(xintercept = 1, linetype = "dashed") +
-  labs(x = "Odds Ratio", y = NULL, title = "Logistic Regression. Odds Ratio and Confidence Intervals \nfor Composite Outcome-associated Factors. \n3-shot Regimen") +
-  theme_minimal() +
-  scale_color_manual(
-    values = c("#c0392b", "#27ae60", "gray70"),
-    labels = c("Adverse", "Protective", "Inconclusive"),
-    name = "Effect on Outcome") +
-  scale_x_continuous(limits = c(0, 5)) +
-  theme(
-    plot.background = element_rect(fill = "white"),
-    panel.grid.major.y = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    plot.title = element_text(hjust = 0.5),
-    plot.title.position = "plot",
-    legend.position = "top",
-    axis.ticks = element_blank(),
-    axis.text.x = element_text(color = "#2c3e50"),
-    axis.text.y = element_text(color = "#2c3e50"
-    ))
-
-ggsave("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_vac_3shot_clinicalevent.png", width = 8, height = 6, dpi = 300)
+log_reg(
+  data = final_dataset, 
+  vaccine_variable = "vac_3shot",
+  file_name = "vac_3shot_2spline",  
+  title = "3-shot Regimen - Splines for Age and Last Immunization", 
+  number_splines = 2)
 
 ```
