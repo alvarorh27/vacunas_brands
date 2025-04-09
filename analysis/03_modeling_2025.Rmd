@@ -23,6 +23,41 @@ library(magrittr)
 # library(webshot2)
 ```
 
+# Load File
+
+```{r}
+final_dataset <- (
+  readRDS(
+    "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands.rds"
+  )
+)
+
+print(nrow(final_dataset))
+
+# Filtrar los pacientes cuya edad es mayor a 100 años
+final_dataset %<>%
+  filter(age < 100)
+
+print(paste("Después de eliminar edad >100:", nrow(final_dataset)))
+
+# Filter up to percentile 95 in ultima_inmun_infecc_dias
+
+summary(final_dataset$ultima_inmun_infecc_dias)
+
+# Calcular el percentil 95 
+p95 <- quantile(final_dataset$ultima_inmun_infecc_dias, 0.95, na.rm = TRUE)
+
+# Filtrar el dataset eliminando los valores por encima del percentil 96
+final_dataset <- final_dataset %>% 
+  filter(is.na(ultima_inmun_infecc_dias) | ultima_inmun_infecc_dias <= p95)
+print(paste("Después de eliminar ultima_inmun_infecc_dias > p95:", nrow(final_dataset)))
+summary(final_dataset$ultima_inmun_infecc_dias)
+
+final_dataset <- final_dataset[1:200000,]
+
+
+```
+
 # Vectors/Dictionaries
 ```{r}
 
@@ -100,6 +135,8 @@ spline_vars <- c("age")
 ```
 
 # Functions
+
+## Extract OR
 ```{r}
 # Extracts and formats logistic regression model coefficients into a data frame with OR and CI
 extract_coef_pval_OR <- function(model) {
@@ -115,6 +152,11 @@ extract_coef_pval_OR <- function(model) {
   )
   )
 } 
+
+```
+
+## GAM model and forest plot
+```{r}
 
 # Function for Logistic Regression Analysis
 log_reg <- function(data, vaccine_variable, file_name, title, number_splines) {
@@ -145,6 +187,8 @@ log_reg <- function(data, vaccine_variable, file_name, title, number_splines) {
     family = binomial(),
     method = "REML"
   )
+  
+  print(summary(model))
   
   ## Extract odds ratios
   model_df_1 <- extract_coef_pval_OR(model)
@@ -222,142 +266,114 @@ log_reg <- function(data, vaccine_variable, file_name, title, number_splines) {
     dpi = 300
   )
   
-  ## Función para extraer los datos del modelo GAM y calcular probabilidades
-  extract_gam_data <- function(model, spline_var) {
-    gam_plot_data <- plot(model, term = spline_var, pages = 1)[[1]] # Use term argument
-    x <- gam_plot_data$x
-    fit <- gam_plot_data$fit
-    se <- gam_plot_data$se
-  
-    prob <- exp(fit) / (1 + exp(fit)) * 100
-    lower <- exp(fit - 2 * se) / (1 + exp(fit - 2 * se)) * 100
-    upper <- exp(fit + 2 * se) / (1 + exp(fit + 2 * se)) * 100
-  
-    data.frame(spline_var = x, probability = prob, lower = lower, upper = upper)
-  }
-  
-  ## Function to create a GAM plot
-  create_gam_plot <- function(data, title, spline_var) {
-    ggplot(data, aes_string(x = "spline_var", y = "probability")) +
-      geom_ribbon(aes_string(ymin = "lower", ymax = "upper"), alpha = 0.3) +
-      geom_line() +
-      labs(title = title, x = spline_var, y = "Probability (%)") +
-      ylim(0, 100) +
-      theme_minimal()
-  }
-  
-  # Generate GAM plots for each spline_var
-  for (spline_var in spline_vars) {
-    plot_data <- extract_gam_data(model, spline_var)
-    plot <- create_gam_plot(plot_data, paste("GAM Plot for", spline_var), spline_var)
-    print(plot)
-  
-    ## Save GAM plot
-    ggsave(
-      filename = paste0("~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_", file_name, "_", spline_var, ".png"),
-      plot = plot,
-      width = 8,
-      height = 6,
-      dpi = 300
-    )
-  }
-
-  time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
+   time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
   print(paste("Time to run:", time_elapsed, "minutes"))
 }
 
 ```
 
-# GAM plot
-```{r}
-
-# Ajuste del modelo GAM
-model <- gam(
-  clinical_event ~ s(ultima_inmun_infecc_dias) + s(age) + vac_3shot + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc + hepatopatia_cronica_excepto_cirrosis + hipertension + 
-    insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido,
-  data = final_dataset,
-  family = binomial(),
-  method = "REML"
-)
-
-summary(model)
-
-## Función para extraer los datos del modelo GAM y calcular probabilidades
-extract_gam_data <- function(model, spline_var) {
-  gam_plot_data <- plot(model, term = spline_var, pages = 1)[[1]] # Use term argument
-  x <- gam_plot_data$x
-  fit <- gam_plot_data$fit
-  se <- gam_plot_data$se
-
-  prob <- exp(fit) / (1 + exp(fit)) * 100
-  lower <- exp(fit - 2 * se) / (1 + exp(fit - 2 * se)) * 100
-  upper <- exp(fit + 2 * se) / (1 + exp(fit + 2 * se)) * 100
-
-  data.frame(spline_var = x, probability = prob, lower = lower, upper = upper)
-}
-
-## Función para crear el gráfico GAM
-create_gam_plot <- function(data, title, spline_var) {
-  ggplot(data, aes_string(x = "spline_var", y = "probability")) +
-    geom_ribbon(aes_string(ymin = "lower", ymax = "upper"), alpha = 0.3) +
-    geom_line() +
-    labs(title = title, x = spline_var, y = "Probability (%)") +
-    ylim(0, 100) +
-    theme_minimal()
-}
-
-# Especificar el nombre de la variable spline
-spline_var <- "ultima_inmun_infecc_dias"  # Aquí puedes cambiar la variable de spline si es diferente
-
-# Generar los datos para el gráfico
-plot_data <- extract_gam_data(model, spline_var)
-
-# Crear el gráfico
-plot <- create_gam_plot(plot_data, paste("GAM Plot for", spline_var), spline_var)
-
-# Imprimir el gráfico
-print(plot)
-
-# Guardar el gráfico
-ggsave(
-  filename = paste0("~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_", "vac_3shot_2spline", "_", spline_var, ".png"),
-  plot = plot,
-  width = 8,
-  height = 6,
-  dpi = 300
-)
-
-
-
-
-```
-
-
-
-# Load File
+## GAM model and GAM plot
 
 ```{r}
-final_dataset <- (
-  readRDS(
-    "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands.rds"
+# Definir la función para ajustar el modelo GAM y crear el gráfico
+generate_gam_plot <- function(data, vaccine_variable, spline_var) {
+  # Ajuste del modelo GAM
+  print('GAM linear regression of Clinical Event')
+  start_time <- Sys.time()
+  print(Sys.time())
+
+  # Definir el orden dinámico de las smooths
+  if (spline_var == "age") {
+    order_smooth <- "s(age) + s(ultima_inmun_infecc_dias)"
+  } else if (spline_var == "ultima_inmun_infecc_dias") {
+    order_smooth <- "s(ultima_inmun_infecc_dias) + s(age)"
+  } else {
+    stop("spline_var debe ser 'age' o 'ultima_inmun_infecc_dias'")
+  }
+
+  # Crear la fórmula completa como texto
+  formula_text <- paste0(
+    "clinical_event ~ ",
+    order_smooth, " + ",
+    vaccine_variable, " + desc_sexo + variant_period + asma + cardiopatia_isquemica + ",
+    "cirrosis_hepatica + diabetes + epoc + hepatopatia_cronica_excepto_cirrosis + hipertension + ",
+    "insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido"
   )
-)
 
-print(nrow(final_dataset))
+  # Convertir a fórmula
+  formula_gam <- as.formula(formula_text)
 
-# Filtrar los pacientes cuya edad es mayor a 100 años
-final_dataset %<>%
-  filter(age < 100)
+  # Ajustar modelo
+  model <- gam(
+    formula = formula_gam,
+    data = data,
+    family = binomial(),
+    method = "REML"
+  )
 
-print(nrow(final_dataset))
+  print(summary(model))
+  
+  # # Imprimir los nudos para las variables spline
+  # print("Nudos para 'ultima_inmun_infecc_dias':")
+  # print(model$smooth[[1]]$xp)  # Puntos de predicción (equivalente a nudos)
+  # 
+  # print("Knots si están definidos explícitamente:")
+  # print(model$smooth[[1]]$knots)
+  # 
+  # print("Nombre de la variable spline:")
+  # print(model$smooth[[1]]$term)
 
 
+  # Función para extraer los datos del modelo GAM y calcular probabilidades
+  extract_gam_data <- function(model, spline_var) {
+    gam_plot_data <- plot(model, term = spline_var, pages = 1)[[1]] # Use term argument
+    x <- gam_plot_data$x
+    fit <- gam_plot_data$fit
+    se <- gam_plot_data$se
 
+    prob <- exp(fit) / (1 + exp(fit)) * 100
+    lower <- exp(fit - 2 * se) / (1 + exp(fit - 2 * se)) * 100
+    upper <- exp(fit + 2 * se) / (1 + exp(fit + 2 * se)) * 100
+
+    data.frame(spline_var = x, probability = prob, lower = lower, upper = upper)
+  }
+
+# Función para crear el gráfico GAM
+  create_gam_plot <- function(data, title, spline_var) {
+    ggplot(data, aes(x = spline_var, y = probability)) +
+      geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3) +
+      geom_line() +
+      labs(title = title, x = spline_var, y = "Probability (%)") +
+      ylim(0, 100) +
+      scale_x_continuous(breaks = scales::breaks_width(10)) +
+      theme_minimal()
+  }
+
+  # Generar los datos para el gráfico y crear el gráfico
+  plot_data <- extract_gam_data(model, spline_var)
+  plot <- create_gam_plot(plot_data, paste0("GAM Plot for ", spline_var, " in the model ", vaccine_variable), spline_var)
+  print(plot)
+
+  # Guardar el gráfico
+  ggsave(
+    filename = paste0("~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_", vaccine_variable, "_2spline_", spline_var, ".png"),
+    plot = plot,
+    width = 8,
+    height = 6,
+    dpi = 300
+  )
+
+  time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
+  print(paste("Time to run:", time_elapsed, "minutes"))
+}
 ```
 
-# Spline for age
 
-## Analysis of variable vac_1shot
+
+
+# 1 Spline: Age
+
+## vac_1shot
 ```{r}
 log_reg(
   data = final_dataset, 
@@ -367,7 +383,7 @@ log_reg(
   number_splines = 1)
 
 ```
-## Analysis of variable vac_2shot
+## vac_2shot
 ```{r}
 log_reg(
   data = final_dataset, 
@@ -378,7 +394,7 @@ log_reg(
 
 ```
 
-## Analysis of variable vac_3shot
+## vac_3shot
 ```{r}
 log_reg(
   data = final_dataset, 
@@ -389,9 +405,10 @@ log_reg(
 
 ```
 
-# Spline for age and last immunization days
 
-## Analysis of variable vac_1shot
+# 2 Splines: Age and last immunization day
+
+## vac_1shot
 ```{r}
 log_reg(
   data = final_dataset, 
@@ -402,7 +419,7 @@ log_reg(
 
 ```
 
-## Analysis of variable vac_2shot
+## vac_2shot
 ```{r}
 log_reg(
   data = final_dataset, 
@@ -413,7 +430,7 @@ log_reg(
 
 ```
 
-## Analysis of variable vac_3shot
+## vac_3shot
 ```{r}
 log_reg(
   data = final_dataset, 
@@ -423,3 +440,53 @@ log_reg(
   number_splines = 2)
 
 ```
+
+
+# GAM Plot of last immunization day
+
+## vac_1shot
+```{r}
+generate_gam_plot(data = final_dataset,
+                  vaccine_variable = "vac_1shot",
+                  spline_var = "ultima_inmun_infecc_dias")
+```
+
+## vac_2shot
+```{r}
+generate_gam_plot(data = final_dataset,
+                  vaccine_variable = "vac_2shot",
+                  spline_var = "ultima_inmun_infecc_dias")
+```
+
+
+## vac_3shot
+```{r}
+generate_gam_plot(data = final_dataset,
+                  vaccine_variable = "vac_3shot",
+                  spline_var = "ultima_inmun_infecc_dias")
+```
+
+# GAM Plot of age
+
+## vac_1shot
+```{r}
+generate_gam_plot(data = final_dataset,
+                  vaccine_variable = "vac_1shot",
+                  spline_var = "age")
+```
+
+## vac_2shot
+```{r}
+generate_gam_plot(data = final_dataset,
+                  vaccine_variable = "vac_2shot",
+                  spline_var = "age")
+```
+
+
+## vac_3shot
+```{r}
+generate_gam_plot(data = final_dataset,
+                  vaccine_variable = "vac_3shot",
+                  spline_var = "age")
+```
+
