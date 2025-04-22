@@ -27,22 +27,28 @@ final_dataset <- (
 #Look at 1-shot combination
 table_vac_1shot <- table(final_dataset[final_dataset$n_vacunas_covid == "Una", ]$shot_1)
 df_table_vac_1shot <- as.data.frame(table_vac_1shot) %>% 
-  filter(Freq > 0)
+  filter(Freq > 0) %>% 
+  mutate(Percent = round(100 * Freq / sum(Freq), 2)) %>%
+  arrange(desc(Percent))
 
 #Look at 2-shot combination
 table_vac_2shot <- table(final_dataset[final_dataset$n_vacunas_covid == "Dos", ]$all_three_shots)
-df_table_vac_2shot <- as.data.frame(table_vac_2shot) %>% 
-  filter(Freq > 0)
+df_table_vac_2shot <- as.data.frame(table_vac_2shot) %>%
+  filter(Freq > 0) %>% 
+  mutate(Percent = round(100 * Freq / sum(Freq), 2)) %>%
+  arrange(desc(Percent))
 
 #Look at 3-shot combination
 table_vac_3shot <- table(final_dataset[final_dataset$n_vacunas_covid == "Tres", ]$all_three_shots)
 df_table_vac_3shot <- as.data.frame(table_vac_3shot) %>% 
-  filter(Freq > 0)
+  filter(Freq > 0) %>% 
+  mutate(Percent = round(100 * Freq / sum(Freq), 2)) %>%
+  arrange(desc(Percent))
 ```
 
 # EDA ultima_inmun_infecc_dias
 ```{r}
-hist(final_dataset$ultima_inmun_infecc_dias, breaks = 10, main = "Distribución de ultima_inmun_infecc_dias", xlab = "Días")
+hist(final_dataset$ultima_inmun_infecc_dias, breaks = 100, main = "Distribución de ultima_inmun_infecc_dias", xlab = "Días")
 summary(final_dataset$ultima_inmun_infecc_dias)
 print(nrow(final_dataset))
 

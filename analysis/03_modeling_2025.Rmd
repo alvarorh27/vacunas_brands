@@ -53,7 +53,35 @@ final_dataset <- final_dataset %>%
 print(paste("Después de eliminar ultima_inmun_infecc_dias > p95:", nrow(final_dataset)))
 summary(final_dataset$ultima_inmun_infecc_dias)
 
-final_dataset <- final_dataset[1:200000,]
+# final_dataset <- final_dataset[1:200000,]
+
+library(dplyr)
+
+final_dataset <- final_dataset %>%
+  mutate(
+    age_grouped = case_when(
+      age >= 12 & age <= 30 ~ "12-30",
+      age > 30 & age <= 65 ~ "31-65",
+      age > 65 ~ ">65",
+      TRUE ~ NA_character_
+    ),
+    age_grouped = factor(age_grouped, levels = c("12-30", "31-65", ">65"))
+  )
+table(final_dataset$age_grouped)
+
+final_dataset <- final_dataset %>%
+  mutate(
+    ultima_inmun_infecc_grouped = case_when(
+      ultima_inmun_infecc_dias >= 14 & ultima_inmun_infecc_dias <= 45 ~ "14-45",
+      ultima_inmun_infecc_dias > 45 & ultima_inmun_infecc_dias <= 90 ~ "46-90",
+      ultima_inmun_infecc_dias > 90 & ultima_inmun_infecc_dias <= 170 ~ "91-170",
+      ultima_inmun_infecc_dias > 170 ~ ">170",
+      TRUE ~ "None"
+    ),
+    ultima_inmun_infecc_grouped = factor(ultima_inmun_infecc_grouped, levels = c("14-45", "None", "46-90", "91-170", ">170"))
+  )
+table(final_dataset$ultima_inmun_infecc_grouped)
+
 
 
 ```
@@ -63,6 +91,14 @@ final_dataset <- final_dataset[1:200000,]
 
 dict_terms <- c(
   "age" = "Age",
+  "age_grouped12-30" = "Age (12-30)",
+  "age_grouped31-65" = "Age (31-65)",
+  "age_grouped>65" = "Age (>65)",
+  "ultima_inmun_infecc_grouped14-45" = "Last immunization: 14-45 days",
+  "ultima_inmun_infecc_groupedNone" = "No previous immunization",
+  "ultima_inmun_infecc_grouped46-90" = "Last immunization: 46-90 days",
+  "ultima_inmun_infecc_grouped91-170" = "Last immunization: 91-170 days",
+  "ultima_inmun_infecc_grouped>170" = "Last immunization: >170 days",
   "desc_sexoHombre" = "Sex (male)",
   "variant_periodα" = "Period of α predominance",
   "variant_periodα/Δ transition" = "α-Δ transition period",
@@ -93,22 +129,12 @@ dict_terms <- c(
   "vac_1shotPfizer/BioNTech" = "Pfizer/BioNTech",
   "vac_1shotOther" = "Other",
   "vac_2shotAstraZeneca+AstraZeneca" = "AstraZeneca+AstraZeneca",
-  "vac_2shotAstraZeneca+Moderna" = "AstraZeneca+Moderna",
-  "vac_2shotAstraZeneca+Pfizer/BioNTech" = "AstraZeneca+Pfizer/BioNTech",
-  "vac_2shotJanssen+Moderna" = "Janssen+Moderna",
-  "vac_2shotJanssen+Pfizer/BioNTech" = "Janssen+Pfizer/BioNTech",
   "vac_2shotModerna+Moderna" = "Moderna+Moderna",
-  "vac_2shotModerna+Pfizer/BioNTech" = "Moderna+Pfizer/BioNTech",
-  "vac_2shotPfizer/BioNTech+Moderna" = "Pfizer/BioNTech+Moderna",
   "vac_2shotPfizer/BioNTech+Pfizer/BioNTech" = "Pfizer/BioNTech+Pfizer/BioNTech",
   "vac_2shotOther" = "Other",
   "vac_3shotAstraZeneca+AstraZeneca+Moderna" = "AstraZeneca+AstraZeneca+Moderna",
   "vac_3shotAstraZeneca+AstraZeneca+Pfizer/BioNTech" = "AstraZeneca+AstraZeneca+Pfizer/BioNTech",
-  "vac_3shotAstraZeneca+Pfizer/BioNTech+Moderna" = "AstraZeneca+Pfizer/BioNTech+Moderna",
-  "vac_3shotAstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech" = "AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech",
   "vac_3shotModerna+Moderna+Moderna" = "Moderna+Moderna+Moderna",
-  "vac_3shotModerna+Moderna+Pfizer/BioNTech" = "Moderna+Moderna+Pfizer/BioNTech",
-  "vac_3shotModerna+Pfizer/BioNTech+Pfizer/BioNTech" = "Moderna+Pfizer/BioNTech+Pfizer/BioNTech",
   "vac_3shotPfizer/BioNTech+Pfizer/BioNTech+Moderna" = "Pfizer/BioNTech+Pfizer/BioNTech+Moderna",
   "vac_3shotPfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech" = "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech"
 )
@@ -116,15 +142,17 @@ dict_terms <- c(
   # Variable mapping and ordering
 variable_order <- rev(c(
 "Intercept", "Age", 
+
+"Age (12-30)", "Age (31-65)", "Age (>65)", 
     
 "AstraZeneca", "Janssen", "Moderna", "Pfizer/BioNTech",
     
-"AstraZeneca+AstraZeneca", "AstraZeneca+Moderna", "AstraZeneca+Pfizer/BioNTech", "Janssen+Moderna", "Janssen+Pfizer/BioNTech", "Moderna+Moderna", "Moderna+Pfizer/BioNTech", "Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech",
+"AstraZeneca+AstraZeneca", "Moderna+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech",
     
-"AstraZeneca+AstraZeneca+Moderna", "AstraZeneca+AstraZeneca+Pfizer/BioNTech", "AstraZeneca+Pfizer/BioNTech+Moderna", 
-"AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech", "Moderna+Moderna+Moderna", "Moderna+Moderna+Pfizer/BioNTech", "Moderna+Pfizer/BioNTech+Pfizer/BioNTech", "Pfizer/BioNTech+Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech", 
+"AstraZeneca+AstraZeneca+Moderna", "AstraZeneca+AstraZeneca+Pfizer/BioNTech", "Moderna+Moderna+Moderna",
+"Pfizer/BioNTech+Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech", 
     
-"No vaccination/infection", "Last vaccination/infection (31-60 days ago)", "Last vaccination/infection (61-90 days ago)", "Last vaccination/infection (91-120 days ago)", "Last vaccination/infection (121-180 days ago)", "Last vaccination/infection (>180 days ago)"
+"Last immunization: 14-45 days", "No previous immunization", "Last immunization: 46-90 days", "Last immunization: 91-170 days", "Last immunization: >170 days"
   ))
   
 # Independent variables (no spline)
@@ -155,11 +183,119 @@ extract_coef_pval_OR <- function(model) {
 
 ```
 
-## GAM model and forest plot
+## Forest plot_glm
 ```{r}
 
 # Function for Logistic Regression Analysis
-log_reg <- function(data, vaccine_variable, file_name, title, number_splines) {
+log_reg_glm <- function(data, vaccine_variable, file_name, title) {
+  
+  print('Logistic Regression of Clinical Event')
+  start_time <- Sys.time() 
+  print(Sys.time())
+  
+# Construir fórmula dinámicamente
+  formula_text <- paste0( 
+    "clinical_event ~ s(age) + ultima_inmun_infecc_grouped + ", vaccine_variable, " + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc + hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido"
+    )
+formula_glm <- as.formula(formula_text)
+
+  
+  ## Fit logistic regression model
+  model <- gam(
+  formula = formula_glm,
+  data = data,
+  family = binomial(), 
+  method = "REML"
+)
+  
+  print(summary(model))
+  
+  ## Extract odds ratios
+  model_df_1 <- extract_coef_pval_OR(model)
+  
+  model_df_2 <- model_df_1 %>%
+    mutate(
+      term = case_when(
+        term == "(Intercept)" ~ "Intercept",
+        TRUE ~ coalesce(dict_terms[term], term)  # Use dictionary mapping
+      ),
+      term = factor(term, levels = variable_order),
+      adverse_protective = case_when(
+        OR_CI_lower > 1 & OR_CI_upper > 1 ~ "Adverse",
+        OR_CI_lower < 1 & OR_CI_upper < 1 ~ "Protective",
+        TRUE ~ "Inconclusive"
+      ),
+      adverse_protective = factor(adverse_protective, levels = c("Adverse", "Protective", "Inconclusive"))
+    ) %>%
+    filter(term != "Intercept")
+  
+  ## Save OR table
+  write.csv(
+    model_df_2 %>%
+      arrange(factor(term, levels = rev(variable_order))),
+    paste0("~/projects/vacunas_brands_2025/data/OR_", file_name, ".csv"),
+    row.names = FALSE
+  )
+  
+  ## Generate HTML table
+  html_output <- htmlTable(
+    model_df_2 %>%
+      select(term, OR, OR_CI_lower, OR_CI_upper, adverse_protective) %>%
+      mutate(term = factor(term, levels = variable_order)) %>%
+      arrange(factor(term, levels = rev(variable_order))),
+  caption = paste0(title, " - Odds Ratio and Confidence Intervals for composite outcome-associated Factors")
+)
+  print(html_output)
+  
+  ## Create the plot with ggplot2
+  plot <- ggplot(model_df_2, 
+                 aes(x = OR, xmin = OR_CI_lower, xmax = OR_CI_upper, y = term, color = adverse_protective)) +
+    geom_point(size = 2, na.rm = TRUE) +  
+    geom_errorbarh(height = 0.2, na.rm = TRUE) +
+    geom_vline(xintercept = 1, linetype = "dashed") +
+    labs(x = "Odds Ratio", y = NULL, title = paste0("Logistic Regression. Odds Ratio and Confidence Intervals \nfor Composite Outcome-associated Factors.\n", title)) +
+    theme_minimal() +
+    scale_color_manual(
+      values = c("Adverse" = "#c0392b", "Protective" = "#27ae60", "Inconclusive" = "gray70"),
+      limits = c("Adverse", "Protective", "Inconclusive"), #ensure all levels appear in legend
+      labels = c("Adverse", "Protective", "Inconclusive"),
+      name = "Effect on Outcome",
+      guide = guide_legend(override.aes = list(size = 3)) 
+    ) +
+    scale_x_continuous(limits = c(0, 5)) +
+    theme(
+      plot.background = element_rect(fill = "white"),
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      plot.title = element_text(hjust = 0.5),
+      plot.title.position = "plot",
+      legend.position = "top",
+      axis.ticks = element_blank(),
+      axis.text.x = element_text(color = "#2c3e50"),
+      axis.text.y = element_text(color = "#2c3e50"))
+  
+  print(plot)
+
+  ## Save plot
+  ggsave(
+    filename = paste0("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_glm", file_name, ".png"),
+    plot = plot, 
+    width = 8, 
+    height = 6, 
+    dpi = 300
+  )
+  
+   time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
+  print(paste("Time to run:", time_elapsed, "minutes"))
+}
+
+```
+
+## Forest plot_gam
+```{r}
+
+# Function for Logistic Regression Analysis
+log_reg_gam <- function(data, vaccine_variable, file_name, title, number_splines) {
   
   print('Logistic Regression of Clinical Event')
   start_time <- Sys.time() 
@@ -256,10 +392,9 @@ log_reg <- function(data, vaccine_variable, file_name, title, number_splines) {
   
   print(plot)
 
-  
   ## Save plot
   ggsave(
-    filename = paste0("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_", file_name, ".png"),
+    filename = paste0("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_gam_", file_name, ".png"),
     plot = plot, 
     width = 8, 
     height = 6, 
@@ -272,7 +407,7 @@ log_reg <- function(data, vaccine_variable, file_name, title, number_splines) {
 
 ```
 
-## GAM model and GAM plot
+## GAM plot
 
 ```{r}
 # Definir la función para ajustar el modelo GAM y crear el gráfico
@@ -312,14 +447,14 @@ generate_gam_plot <- function(data, vaccine_variable, spline_var) {
   )
 
   print(summary(model))
-  
+
   # # Imprimir los nudos para las variables spline
   # print("Nudos para 'ultima_inmun_infecc_dias':")
   # print(model$smooth[[1]]$xp)  # Puntos de predicción (equivalente a nudos)
-  # 
+  #
   # print("Knots si están definidos explícitamente:")
   # print(model$smooth[[1]]$knots)
-  # 
+  #
   # print("Nombre de la variable spline:")
   # print(model$smooth[[1]]$term)
 
@@ -366,6 +501,7 @@ generate_gam_plot <- function(data, vaccine_variable, spline_var) {
   time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
   print(paste("Time to run:", time_elapsed, "minutes"))
 }
+
 ```
 
 
@@ -406,11 +542,11 @@ log_reg(
 ```
 
 
-# 2 Splines: Age and last immunization day
+# Forest plot - GAM - 2 splines
 
 ## vac_1shot
 ```{r}
-log_reg(
+log_reg_gam(
   data = final_dataset, 
   vaccine_variable = "vac_1shot", 
   file_name = "vac_1shot_2spline",
@@ -421,7 +557,7 @@ log_reg(
 
 ## vac_2shot
 ```{r}
-log_reg(
+log_reg_gam(
   data = final_dataset, 
   vaccine_variable = "vac_2shot",
   file_name = "vac_2shot_2spline",
@@ -432,12 +568,47 @@ log_reg(
 
 ## vac_3shot
 ```{r}
-log_reg(
+log_reg_gam(
   data = final_dataset, 
   vaccine_variable = "vac_3shot",
   file_name = "vac_3shot_2spline",  
   title = "3-shot Regimen - Splines for Age and Last Immunization", 
   number_splines = 2)
+
+```
+
+# Forest plot - GLM - 1 spline (age)
+
+## vac_1shot
+```{r}
+log_reg_glm(
+  data = final_dataset, 
+  vaccine_variable = "vac_1shot", 
+  file_name = "vac_1shot_2spline",
+  title = "1-shot Regimen"
+  )
+
+```
+
+## vac_2shot
+```{r}
+log_reg_glm(
+  data = final_dataset, 
+  vaccine_variable = "vac_2shot",
+  file_name = "vac_2shot_2spline",
+  title = "2-shot Regimen"
+  )
+
+```
+
+## vac_3shot
+```{r}
+log_reg_glm(
+  data = final_dataset, 
+  vaccine_variable = "vac_3shot",
+  file_name = "vac_3shot_2spline",  
+  title = "3-shot Regimen"
+  )
 
 ```
 
