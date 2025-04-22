@@ -183,11 +183,11 @@ extract_coef_pval_OR <- function(model) {
 
 ```
 
-## Forest plot_glm
+## GAM model with 1 spline (age)
 ```{r}
 
 # Function for Logistic Regression Analysis
-log_reg_glm <- function(data, vaccine_variable, file_name, title) {
+log_reg_gam_1s <- function(data, vaccine_variable, file_name, title) {
   
   print('Logistic Regression of Clinical Event')
   start_time <- Sys.time() 
@@ -278,7 +278,7 @@ formula_glm <- as.formula(formula_text)
 
   ## Save plot
   ggsave(
-    filename = paste0("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_glm", file_name, ".png"),
+    filename = paste0("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_gam_1spline_", file_name, ".png"),
     plot = plot, 
     width = 8, 
     height = 6, 
@@ -291,11 +291,11 @@ formula_glm <- as.formula(formula_text)
 
 ```
 
-## Forest plot_gam
+## GAM model with 2 splines
 ```{r}
 
 # Function for Logistic Regression Analysis
-log_reg_gam <- function(data, vaccine_variable, file_name, title, number_splines) {
+log_reg_gam_2s <- function(data, vaccine_variable, file_name, title, number_splines) {
   
   print('Logistic Regression of Clinical Event')
   start_time <- Sys.time() 
@@ -394,7 +394,7 @@ log_reg_gam <- function(data, vaccine_variable, file_name, title, number_splines
 
   ## Save plot
   ggsave(
-    filename = paste0("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_gam_", file_name, ".png"),
+    filename = paste0("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_gam_2spline_", file_name, ".png"),
     plot = plot, 
     width = 8, 
     height = 6, 
@@ -505,86 +505,14 @@ generate_gam_plot <- function(data, vaccine_variable, spline_var) {
 ```
 
 
-
-
-# 1 Spline: Age
+# Forest plot - GAM - 1 spline (age)
 
 ## vac_1shot
 ```{r}
-log_reg(
+log_reg_gam_1s(
   data = final_dataset, 
   vaccine_variable = "vac_1shot", 
-  file_name = "vac_1shot_1spline",
-  title = "1-shot Regimen - Spline for Age", 
-  number_splines = 1)
-
-```
-## vac_2shot
-```{r}
-log_reg(
-  data = final_dataset, 
-  vaccine_variable = "vac_2shot",
-  file_name = "vac_2shot_1spline",
-  title = "2-shot Regimen - Spline for Age", 
-  number_splines = 1)
-
-```
-
-## vac_3shot
-```{r}
-log_reg(
-  data = final_dataset, 
-  vaccine_variable = "vac_3shot",
-  file_name = "vac_3shot_1spline",  
-  title = "3-shot Regimen - Spline for Age", 
-  number_splines = 1)
-
-```
-
-
-# Forest plot - GAM - 2 splines
-
-## vac_1shot
-```{r}
-log_reg_gam(
-  data = final_dataset, 
-  vaccine_variable = "vac_1shot", 
-  file_name = "vac_1shot_2spline",
-  title = "1-shot Regimen - Splines for Age and Last Immunization", 
-  number_splines = 2)
-
-```
-
-## vac_2shot
-```{r}
-log_reg_gam(
-  data = final_dataset, 
-  vaccine_variable = "vac_2shot",
-  file_name = "vac_2shot_2spline",
-  title = "2-shot Regimen - Splines for Age and Last Immunization", 
-  number_splines = 2)
-
-```
-
-## vac_3shot
-```{r}
-log_reg_gam(
-  data = final_dataset, 
-  vaccine_variable = "vac_3shot",
-  file_name = "vac_3shot_2spline",  
-  title = "3-shot Regimen - Splines for Age and Last Immunization", 
-  number_splines = 2)
-
-```
-
-# Forest plot - GLM - 1 spline (age)
-
-## vac_1shot
-```{r}
-log_reg_glm(
-  data = final_dataset, 
-  vaccine_variable = "vac_1shot", 
-  file_name = "vac_1shot_2spline",
+  file_name = "vac1shot",
   title = "1-shot Regimen"
   )
 
@@ -592,10 +520,10 @@ log_reg_glm(
 
 ## vac_2shot
 ```{r}
-log_reg_glm(
+log_reg_gam_1s(
   data = final_dataset, 
   vaccine_variable = "vac_2shot",
-  file_name = "vac_2shot_2spline",
+  file_name = "vac2shot",
   title = "2-shot Regimen"
   )
 
@@ -603,12 +531,47 @@ log_reg_glm(
 
 ## vac_3shot
 ```{r}
-log_reg_glm(
+log_reg_gam_1s(
   data = final_dataset, 
   vaccine_variable = "vac_3shot",
-  file_name = "vac_3shot_2spline",  
+  file_name = "vac3shot",  
   title = "3-shot Regimen"
   )
+
+```
+
+# Forest plot - GAM - 2 splines
+
+## vac_1shot
+```{r}
+log_reg_gam_2s(
+  data = final_dataset, 
+  vaccine_variable = "vac_1shot", 
+  file_name = "vac1shot",
+  title = "1-shot Regimen - Splines for Age and Last Immunization", 
+  number_splines = 2)
+
+```
+
+## vac_2shot
+```{r}
+log_reg_gam_2s(
+  data = final_dataset, 
+  vaccine_variable = "vac_2shot",
+  file_name = "vac2shot",
+  title = "2-shot Regimen - Splines for Age and Last Immunization", 
+  number_splines = 2)
+
+```
+
+## vac_3shot
+```{r}
+log_reg_gam_2s(
+  data = final_dataset, 
+  vaccine_variable = "vac_3shot",
+  file_name = "vac3shot",  
+  title = "3-shot Regimen - Splines for Age and Last Immunization", 
+  number_splines = 2)
 
 ```
 
