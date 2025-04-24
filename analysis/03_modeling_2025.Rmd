@@ -82,6 +82,12 @@ final_dataset <- final_dataset %>%
   )
 table(final_dataset$ultima_inmun_infecc_grouped)
 
+saveRDS(final_dataset, file = "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands_excluded.rds")
+
+170-250
+
+>250
+
 
 
 ```
@@ -289,7 +295,9 @@ formula_glm <- as.formula(formula_text)
   print(paste("Time to run:", time_elapsed, "minutes"))
 }
 
+
 ```
+
 
 ## GAM model with 2 splines
 ```{r}
@@ -504,7 +512,6 @@ generate_gam_plot <- function(data, vaccine_variable, spline_var) {
 
 ```
 
-
 # Forest plot - GAM - 1 spline (age)
 
 ## vac_1shot
@@ -576,7 +583,7 @@ log_reg_gam_2s(
 ```
 
 
-# GAM Plot of last immunization day
+# GAM Plot of last immunization
 
 ## vac_1shot
 ```{r}
