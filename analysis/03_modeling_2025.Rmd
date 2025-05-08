@@ -146,20 +146,38 @@ dict_terms <- c(
 )
 
   # Variable mapping and ordering
-variable_order <- rev(c(
+variable_order_reduced <- rev(c(
 "Intercept", "Age", 
-
 "Age (12-30)", "Age (31-65)", "Age (>65)", 
-    
 "AstraZeneca", "Janssen", "Moderna", "Pfizer/BioNTech",
-    
 "AstraZeneca+AstraZeneca", "Moderna+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech",
-    
 "AstraZeneca+AstraZeneca+Moderna", "AstraZeneca+AstraZeneca+Pfizer/BioNTech", "Moderna+Moderna+Moderna",
 "Pfizer/BioNTech+Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech", 
-    
 "Last immunization: 14-45 days", "No previous immunization", "Last immunization: 46-90 days", "Last immunization: 91-170 days", "Last immunization: >170 days"
   ))
+
+added_variables <- rev(c(
+  "Sex (male)",
+  "Period of α predominance",
+  "α-Δ transition period",
+  "Period of Δ predominance",
+  "Δ-Ό transition period",
+  "Period of Ό predominance",
+  "Asthma",
+  "Ischemic heart disease",
+  "Hepatic cirrhosis",
+  "Diabetes",
+  "Chronic Obstructive Pulmonary Disease (COPD)",
+  "Chronic Hepatic Disease (except cirrhosis)",
+  "Hypertension",
+  "Heart failure",
+  "Chronic kidney disease",
+  "HIV+",
+  "Haematologic cancer",
+  "Solid organ cancer"
+))
+
+variable_order_all <- c(added_variables, variable_order_reduced)
   
 # Independent variables (no spline)
 predictor_vars <- c("desc_sexo", "variant_period", "asma", "cardiopatia_isquemica", "cirrosis_hepatica", "diabetes", "epoc", "hepatopatia_cronica_excepto_cirrosis", "hipertension", "insuficiencia_cardiaca", "insuficiencia_renal_cronica", "vih", "cancer_hematologico", "cancer_organo_solido", "ultima_inmun_infecc_bin")
@@ -193,11 +211,21 @@ extract_coef_pval_OR <- function(model) {
 ```{r}
 
 # Function for Logistic Regression Analysis
-log_reg_gam_1s <- function(data, vaccine_variable, file_name, title) {
+log_reg_gam_1s <- function(data, vaccine_variable, variables, file_name, title) {
   
   print('Logistic Regression of Clinical Event')
   start_time <- Sys.time() 
   print(Sys.time())
+  
+  # Define the order of variables for the model based on the 'variables' argument
+  if (variables == "reduced") {
+    variable_order <- variable_order_reduced
+  } else if (variables == "all") {
+    variable_order <- variable_order_all
+  } else {
+    # Handle invalid values for 'variables'
+    stop("The 'variables' argument must be 'reduced' or 'all'")
+  }
   
 # Construir fórmula dinámicamente
   formula_text <- paste0( 
@@ -514,34 +542,75 @@ generate_gam_plot <- function(data, vaccine_variable, spline_var) {
 
 # Forest plot - GAM - 1 spline (age)
 
-## vac_1shot
+## Reduced variables in forest plot
+### vac_1shot
 ```{r}
 log_reg_gam_1s(
   data = final_dataset, 
-  vaccine_variable = "vac_1shot", 
-  file_name = "vac1shot",
+  vaccine_variable = "vac_1shot",
+  variables = "reduced",
+  file_name = "vac1shot_reduced",
   title = "1-shot Regimen"
   )
 
 ```
 
-## vac_2shot
+### vac_2shot
 ```{r}
 log_reg_gam_1s(
   data = final_dataset, 
   vaccine_variable = "vac_2shot",
-  file_name = "vac2shot",
+  variables = "reduced",
+  file_name = "vac2shot_reduced",
   title = "2-shot Regimen"
   )
 
 ```
 
-## vac_3shot
+### vac_3shot
 ```{r}
 log_reg_gam_1s(
   data = final_dataset, 
   vaccine_variable = "vac_3shot",
-  file_name = "vac3shot",  
+  variables = "reduced",
+  file_name = "vac3shot_reduced",  
+  title = "3-shot Regimen"
+  )
+
+```
+## All variables in forest plot
+
+### vac_1shot
+```{r}
+log_reg_gam_1s(
+  data = final_dataset, 
+  vaccine_variable = "vac_1shot",
+  variables = "all",
+  file_name = "vac1shot_all",
+  title = "1-shot Regimen"
+  )
+
+```
+
+### vac_2shot
+```{r}
+log_reg_gam_1s(
+  data = final_dataset, 
+  vaccine_variable = "vac_2shot",
+  variables = "all",
+  file_name = "vac2shot_all",
+  title = "2-shot Regimen"
+  )
+
+```
+
+### vac_3shot
+```{r}
+log_reg_gam_1s(
+  data = final_dataset, 
+  vaccine_variable = "vac_3shot",
+  variables = "all",
+  file_name = "vac3shot_all",  
   title = "3-shot Regimen"
   )
 
