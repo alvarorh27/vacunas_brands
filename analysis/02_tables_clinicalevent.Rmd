@@ -10,10 +10,23 @@ library(dplyr)
 library(magrittr)
 library(tableone)
 library(kableExtra)
+library(summarytools)
 library(gtsummary)
 library(knitr)
 
 ```
+```{r}
+remove.packages(c("flextable", "officer", "gdtools", "openssl"))
+install.packages("flextable", dependencies = TRUE)
+library(flextable)
+```
+```{r}
+.libPaths()
+
+install.packages("flextable", lib = "/home/alvaro.ritore.ext/R/x86_64-redhat-linux-gnu-library/4.4", dependencies = TRUE)
+```
+
+
 
 # Load File
 
@@ -25,49 +38,147 @@ final_dataset <- (
 )
 ```
 
+# Statistics
+```{r}
+# Print dfSummary
+stview(dfSummary(final_dataset)) 
+
+# Define the list of continuous variables that are not normally distributed
+nonnormal_variables <- c('age') 
+
+# Testing normality with Kolmogorov-Smirnov test
+# A low p-value (usually lower than 0.05) suggests that the variable does not follow a normal distribution
+for (col in nonnormal_variables) {
+  test_result <- ks.test(final_dataset[[col]], "pnorm", mean(final_dataset[[col]]), sd(final_dataset[[col]]))
+  print(paste("Variable:", col))
+  print(test_result)
+  if (test_result$p.value < 0.05) {
+    print(paste(col, "is likely NOT normally distributed (p-value < 0.05)."))
+  } else {
+    print(paste(col, "is likely normally distributed (p-value >= 0.05)."))
+  }
+}
+```
+# Functions and Dictionaries
+```{r}
+# List of variables and labels for Table1 
+labels_list <- list(
+  age = 'Age (years)',
+  desc_sexo = 'Sex (male)',
+  ultima_inmun_infecc_grouped = 'Last immunization (days)',
+  "variant_periodα" = "Period of α predominance",
+  "variant_periodα/Δ transition" = "α-Δ transition period",
+  "variant_periodΔ" = "Period of Δ predominance",
+  "variant_periodΔ/Ό transition" = "Δ-Ό transition period",
+  "variant_periodΌ" = "Period of Ό predominance",
+  "asmaSí" = "Asthma",
+  "cardiopatia_isquemicaSí" = "Ischemic heart disease",
+  "cirrosis_hepaticaSí" = "Hepatic cirrhosis",
+  "diabetesSí" = "Diabetes",
+  "epocSí" = "Chronic Obstructive Pulmonary Disease (COPD)",
+  "hepatopatia_cronica_excepto_cirrosisSí" = "Chronic Hepatic Disease (except cirrhosis)",
+  "hipertensionSí" = "Hypertension",
+  "insuficiencia_cardiacaSí" = "Heart failure",
+  "insuficiencia_renal_cronicaSí" = "Chronic kidney disease",
+  "vih" = "HIV+",
+  "cancer_hematologicoSí" = "Haematologic cancer",
+  "cancer_organo_solidoSí" = "Solid organ cancer"
+)
+
+# Function to detect categorical variables
+detect_categorical <- function(vars_in_table1, table1_dataset) {
+  cat_variables <- c()
+  cont <- 1
+  
+  for (i in 1:length(vars_in_table1)) {
+    if (n_distinct(table1_dataset[[vars_in_table1[i]]]) <= 10) {
+      print(i)
+      print(vars_in_table1[i])
+      print(names(table1_dataset[vars_in_table1[i]]))
+      cat_variables[cont] <- names(table1_dataset[vars_in_table1[i]])
+      cont <- cont + 1
+    }
+  }
+  
+  return(cat_variables)
+}
+
+# Function to assign labels to variable names
+assign_labels <- function(vars_in_table1, table1_dataset, labels_list) {
+  for (var in names(labels_list)) {
+    if (var %in% vars_in_table1) {
+      label(table1_dataset[[var]]) <- labels_list[[var]]
+    }
+  }
+  return(table1_dataset)
+}
+  
+# Function to create and export a docx table using flextable package
+create_flextable <- function(table1, values, colwidths, title, save_name) {
+  
+  # Convert the table to a data frame and adjust columns
+  table_df <- as.data.frame(table1) %>%
+    rownames_to_column(var = "Variable") %>%
+    select(-("test"))  # Removing the 'test' column
+  
+  # Set default font size for the flextable
+  set_flextable_defaults(font.size = 10)
+  
+  # Create a flextable and format the table
+  table_doc <- flextable(table_df) %>%
+    add_header_row(
+      values = values,   # Custom header values
+      colwidths = colwidths  # Custom column widths
+    ) %>%
+    set_caption(caption = title) %>%
+    set_table_properties(layout = "autofit") %>%
+    align(align = "left", part = "body", j = 1) %>%  # Aligns first column to the left
+    align(align = "center", part = "body", j = 2:ncol(table_df))  # Aligns rest to center
+  
+  # Export the table to a .docx file
+  read_docx() %>%
+    body_add_flextable(value = table_doc) %>%
+    print(target = file.path(root_dir, "tables", paste0(save_name, ".docx")))  # Save the file with custom name
+}
+```
+
+
 # Table one. Stratified by composite clinical outcome
 
 ```{r}
 # Lists the variables we are going to be including in table1 (except for the stratification variable)
-vars_in_table1 <- c('age', 'desc_sexo', 'ultima_inmun_infecc_dias', 'ultima_inmun_infecc_grouped', 'variant_period', 
+vars_in_table1 <- c('age', 'desc_sexo', 'ultima_inmun_infecc_grouped', 'variant_period', 
                   'vaccine_bin', 'n_vacunas_covid', 'vac_1shot', 'vac_2shot', 'vac_3shot', 
-                  'hosp_stay_bin', 'icu_stay_bin', 'mortality30d', 'clinical_event',
+                  'hosp_stay_bin', 'icu_stay_bin', 'mortality30d',
                   'asma', 'epoc', 'cardiopatia_isquemica', 'insuficiencia_cardiaca', 'hipertension', 
                   'cirrosis_hepatica', 'hepatopatia_cronica_excepto_cirrosis', 'diabetes', 'insuficiencia_renal_cronica', 
                   'vih', 'cancer_organo_solido', 'cancer_hematologico')
 
 # Creates a dataset with only selected variables using our original dataset and generates an empty list for storing categorical variables
-table1_dataset <- final_dataset[,vars_in_table1]
+stratifyby <- c("clinical_event")
+table1_dataset <- final_dataset[,c(vars_in_table1, stratifyby)]
 cat_variables <- rep(NA, length(vars_in_table1))
 
-# Detects whether a variable is categorical or not
-cont <- 1
-for (i in 1:length(vars_in_table1) ) {
-  if ( n_distinct(table1_dataset[vars_in_table1[i] ])<=10 ) {
-    print(i)
-    print(vars_in_table1[i])
-    print(names(table1_dataset[vars_in_table1[i]]))
-    cat_variables[cont]<-names(table1_dataset[vars_in_table1[i]])
-    cont<-cont+1
-  }
-}
+# Assign labels to variable names
+table1_dataset <- assign_labels(vars_in_table1, table1_dataset, labels_list)
 
-# Establishes the stratification variables and eliminates null values from 'cat_variables'
-stratifyby <- c("clinical_event")
+# Detects whether a variable is categorical or not and eliminates null values
+cat_variables <- detect_categorical(vars_in_table1, table1_dataset)
 cat_variables<-cat_variables[!is.na(cat_variables)]
 
 # Creates table one
-table1 <-
-  print(
-    CreateTableOne(
-      vars = vars_in_table1,
-      strata = stratifyby,
-      factorVars = cat_variables,
-      data = table1_dataset,
-      addOverall = T
-    ),
-    varLabels = T
-  )
+table1 <- print(
+  CreateTableOne(
+    vars = vars_in_table1,
+    strata = stratifyby,
+    factorVars = cat_variables,
+    data = table1_dataset,
+    addOverall = T
+  ),
+  nonnormal = nonnormal_variables,
+  formatOptions = list(big.mark = ","),
+  varLabels = T
+)
 
 # Run this in console for html output, the code below uses kableExtra::
  starification_cats<-n_distinct(table1_dataset[,stratifyby])
@@ -78,11 +189,13 @@ table1 <-
    kable_classic_2(full_width = F, html_font = "Cambria")
    # add_header_above(c("", "", "No", "Yes", "", ""))
 
-# # Export kable 
-#   table1 %>%
-#    kbl(caption = "Table 1 of base model: Clinical Event" , align = "c") %>%
-#    kable_classic_2(full_width = F, html_font = "Cambria") %>%
-#    add_header_above(c("", "", "No", "Yes", "", "")) %>%
-#    save_kable("~/projects/vacunas_brands_2025/figures/Table1/table1_clinicalevent.jpg", zoom = 10)
+# Export table in docx
+create_flextable(
+  table1 = table1,
+  values = c("", "", "Clinical Event", ""),
+  colwidths = c(1, 1, 2, 1),
+  title = "Baseline characteristics of study population stratified by clinical event",
+  save_name = "table1_vacunas_brands"
+)
 
 ```

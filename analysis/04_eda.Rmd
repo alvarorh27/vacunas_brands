@@ -48,23 +48,104 @@ df_table_vac_3shot <- as.data.frame(table_vac_3shot) %>%
 
 # EDA ultima_inmun_infecc_dias
 ```{r}
-hist(final_dataset$ultima_inmun_infecc_dias, breaks = 100, main = "Distribución de ultima_inmun_infecc_dias", xlab = "Días")
-summary(final_dataset$ultima_inmun_infecc_dias)
-print(nrow(final_dataset))
+# hist(final_dataset$ultima_inmun_infecc_dias, breaks = 100, main = "Distribución de ultima_inmun_infecc_dias", xlab = "Días")
+# summary(final_dataset$ultima_inmun_infecc_dias)
+# print(nrow(final_dataset))
+# 
+# 
+# # Calcular el percentil 95 
+# p95 <- quantile(final_dataset$ultima_inmun_infecc_dias, 0.95, na.rm = TRUE)
+# print(paste("p95 is:", p95))
+# 
+# # Filtrar el dataset eliminando los valores por encima del percentil 96
+# final_dataset_reduced <- final_dataset %>%
+#   filter(is.na(ultima_inmun_infecc_dias) | ultima_inmun_infecc_dias <= p95)
+# 
+# 
+# hist(final_dataset_reduced$ultima_inmun_infecc_dias, breaks = 100, main = "Distribución de ultima_inmun_infecc_dias", xlab = "Días")
+# summary(final_dataset_reduced$ultima_inmun_infecc_dias)
+# print(paste("Después de eliminar ultima_inmun_infecc_dias > p95:", nrow(final_dataset_reduced)))
 
 
-# Calcular el percentil 95 
-p95 <- quantile(final_dataset$ultima_inmun_infecc_dias, 0.95, na.rm = TRUE)
-print(paste("p95 is:", p95))
+```
+# Exclusion criteria
+```{r}
+final_dataset <- (
+  readRDS(
+    "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands.rds"
+  )
+)
+print(paste("Number of rows before exclusion criteria:", nrow(final_dataset)))
 
-# Filtrar el dataset eliminando los valores por encima del percentil 96
-final_dataset_reduced <- final_dataset %>%
-  filter(is.na(ultima_inmun_infecc_dias) | ultima_inmun_infecc_dias <= p95)
+# Age
+print("Age variable")
+summary(final_dataset$age)
+## Calculate percentile 95 
+p95_age <- quantile(final_dataset$age, 0.95, na.rm = TRUE)
+## Filter dataset by values of age >p95
+final_dataset_excluded <- final_dataset %>% 
+  filter(is.na(age) | age <= p95_age)
+print(paste("After filtering out age values > p95:", nrow(final_dataset_excluded)))
+summary(final_dataset_excluded$age)
+hist(final_dataset_excluded$age, breaks = 100, main = "Distribución de age", xlab = "Años")
+
+# Days from last immunization
+print("Days since immunization variable")
+summary(final_dataset_excluded$ultima_inmun_infecc_dias)
+# ## Calculate percentile 95  
+# p95_days <- quantile(final_dataset_excluded$ultima_inmun_infecc_dias, 0.95, na.rm = TRUE)
+# ## Filter dataset by values of ultima_inmun_infecc_dias >p95
+# final_dataset_excluded <- final_dataset_excluded %>%
+#   filter(is.na(ultima_inmun_infecc_dias) | ultima_inmun_infecc_dias <= p95_days)
+# print(paste("Después de eliminar ultima_inmun_infecc_dias > p95:", nrow(final_dataset_excluded)))
+# summary(final_dataset_excluded$ultima_inmun_infecc_dias)
+
+# Create categorical groups
+## Age
+final_dataset_excluded <- final_dataset_excluded %>%
+  mutate(
+    age_grouped = case_when(
+      age >= 12 & age <= 30 ~ "12-30",
+      age > 30 & age <= 65 ~ "31-65",
+      age > 65 ~ ">65",
+      TRUE ~ NA_character_
+    ),
+    age_grouped = factor(age_grouped, levels = c("12-30", "31-65", ">65"))
+  )
+table(final_dataset_excluded$age_grouped)
+
+# # Last immunization days variable
+# final_dataset_excluded <- final_dataset_excluded %>%
+#   mutate(
+#     ultima_inmun_infecc_grouped = case_when(
+#       ultima_inmun_infecc_dias >= 14 & ultima_inmun_infecc_dias <= 45 ~ "14-45",
+#       ultima_inmun_infecc_dias > 45 & ultima_inmun_infecc_dias <= 90 ~ "46-90",
+#       ultima_inmun_infecc_dias > 90 & ultima_inmun_infecc_dias <= 170 ~ "91-170",
+#       ultima_inmun_infecc_dias > 170 ~ ">170",
+#       TRUE ~ "None"
+#     ),
+#     ultima_inmun_infecc_grouped = factor(ultima_inmun_infecc_grouped, levels = c("14-45", "None", "46-90", "91-170", ">170"))
+#   )
+# Last immunization days variable
+final_dataset_excluded <- final_dataset_excluded %>%
+  mutate(
+    ultima_inmun_infecc_grouped = case_when(
+      ultima_inmun_infecc_dias >= 14 & ultima_inmun_infecc_dias <= 45 ~ "14-45",
+      ultima_inmun_infecc_dias > 45 & ultima_inmun_infecc_dias <= 90 ~ "46-90",
+      ultima_inmun_infecc_dias > 90 & ultima_inmun_infecc_dias <= 170 ~ "91-170",
+      ultima_inmun_infecc_dias > 170 & ultima_inmun_infecc_dias <= 246 ~ "170-246",
+      ultima_inmun_infecc_dias > 246 ~ ">246",
+      TRUE ~ "None"
+    ),
+    ultima_inmun_infecc_grouped = factor(ultima_inmun_infecc_grouped, levels = c("14-45", "None", "46-90", "91-170",
+                                                                                 "170-246", ">246"))
+  )
+table(final_dataset_excluded$ultima_inmun_infecc_grouped)
+
+saveRDS(final_dataset_excluded, file = "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands_excluded.rds")
 
 
-hist(final_dataset_reduced$ultima_inmun_infecc_dias, breaks = 100, main = "Distribución de ultima_inmun_infecc_dias", xlab = "Días")
-summary(final_dataset_reduced$ultima_inmun_infecc_dias)
-print(paste("Después de eliminar ultima_inmun_infecc_dias > p95:", nrow(final_dataset_reduced)))
+
 
 
 ```

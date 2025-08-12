@@ -8,9 +8,9 @@ title: "03_modeling_clinicalevent"
 ```{r}
 library(skimr)
 library(mgcv)
-library(parallel)
-library(parglm)
-library(pROC)
+# library(parallel)
+# library(parglm)
+# library(pROC)
 library(ggplot2)
 library(tibble)
 library(dplyr)
@@ -28,68 +28,9 @@ library(magrittr)
 ```{r}
 final_dataset <- (
   readRDS(
-    "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands.rds"
+    "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands_excluded.rds"
   )
 )
-
-print(nrow(final_dataset))
-
-# Filtrar los pacientes cuya edad es mayor a 100 años
-final_dataset %<>%
-  filter(age < 100)
-
-print(paste("Después de eliminar edad >100:", nrow(final_dataset)))
-
-# Filter up to percentile 95 in ultima_inmun_infecc_dias
-
-summary(final_dataset$ultima_inmun_infecc_dias)
-
-# Calcular el percentil 95 
-p95 <- quantile(final_dataset$ultima_inmun_infecc_dias, 0.95, na.rm = TRUE)
-
-# Filtrar el dataset eliminando los valores por encima del percentil 96
-final_dataset <- final_dataset %>% 
-  filter(is.na(ultima_inmun_infecc_dias) | ultima_inmun_infecc_dias <= p95)
-print(paste("Después de eliminar ultima_inmun_infecc_dias > p95:", nrow(final_dataset)))
-summary(final_dataset$ultima_inmun_infecc_dias)
-
-# final_dataset <- final_dataset[1:200000,]
-
-library(dplyr)
-
-final_dataset <- final_dataset %>%
-  mutate(
-    age_grouped = case_when(
-      age >= 12 & age <= 30 ~ "12-30",
-      age > 30 & age <= 65 ~ "31-65",
-      age > 65 ~ ">65",
-      TRUE ~ NA_character_
-    ),
-    age_grouped = factor(age_grouped, levels = c("12-30", "31-65", ">65"))
-  )
-table(final_dataset$age_grouped)
-
-final_dataset <- final_dataset %>%
-  mutate(
-    ultima_inmun_infecc_grouped = case_when(
-      ultima_inmun_infecc_dias >= 14 & ultima_inmun_infecc_dias <= 45 ~ "14-45",
-      ultima_inmun_infecc_dias > 45 & ultima_inmun_infecc_dias <= 90 ~ "46-90",
-      ultima_inmun_infecc_dias > 90 & ultima_inmun_infecc_dias <= 170 ~ "91-170",
-      ultima_inmun_infecc_dias > 170 ~ ">170",
-      TRUE ~ "None"
-    ),
-    ultima_inmun_infecc_grouped = factor(ultima_inmun_infecc_grouped, levels = c("14-45", "None", "46-90", "91-170", ">170"))
-  )
-table(final_dataset$ultima_inmun_infecc_grouped)
-
-saveRDS(final_dataset, file = "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands_excluded.rds")
-
-170-250
-
->250
-
-
-
 ```
 
 # Vectors/Dictionaries
@@ -104,7 +45,9 @@ dict_terms <- c(
   "ultima_inmun_infecc_groupedNone" = "No previous immunization",
   "ultima_inmun_infecc_grouped46-90" = "Last immunization: 46-90 days",
   "ultima_inmun_infecc_grouped91-170" = "Last immunization: 91-170 days",
+  "ultima_inmun_infecc_grouped170-246" = "Last immunization: 170-246 days",
   "ultima_inmun_infecc_grouped>170" = "Last immunization: >170 days",
+  "ultima_inmun_infecc_grouped>246" = "Last immunization: >246 days",
   "desc_sexoHombre" = "Sex (male)",
   "variant_periodα" = "Period of α predominance",
   "variant_periodα/Δ transition" = "α-Δ transition period",
@@ -153,7 +96,7 @@ variable_order_reduced <- rev(c(
 "AstraZeneca+AstraZeneca", "Moderna+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech",
 "AstraZeneca+AstraZeneca+Moderna", "AstraZeneca+AstraZeneca+Pfizer/BioNTech", "Moderna+Moderna+Moderna",
 "Pfizer/BioNTech+Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech", 
-"Last immunization: 14-45 days", "No previous immunization", "Last immunization: 46-90 days", "Last immunization: 91-170 days", "Last immunization: >170 days"
+"Last immunization: 14-45 days", "No previous immunization", "Last immunization: 46-90 days", "Last immunization: 91-170 days", "Last immunization: 170-246 days", "Last immunization: >170 days", "Last immunization: >246 days"
   ))
 
 added_variables <- rev(c(
