@@ -20,6 +20,8 @@ library(htmlTable)
 library(caret)
 library(kableExtra)
 library(magrittr)
+# library(plotly)
+library(htmlwidgets)
 # library(webshot2)
 ```
 
@@ -31,6 +33,8 @@ final_dataset <- (
     "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands_excluded.rds"
   )
 )
+
+# final_dataset <- final_dataset[1:10000,]
 ```
 
 # Vectors/Dictionaries
@@ -41,13 +45,12 @@ dict_terms <- c(
   "age_grouped12-30" = "Age (12-30)",
   "age_grouped31-65" = "Age (31-65)",
   "age_grouped>65" = "Age (>65)",
-  "ultima_inmun_infecc_grouped14-45" = "Last immunization: 14-45 days",
   "ultima_inmun_infecc_groupedNone" = "No previous immunization",
+  "ultima_inmun_infecc_grouped14-45" = "Last immunization: 14-45 days",
   "ultima_inmun_infecc_grouped46-90" = "Last immunization: 46-90 days",
   "ultima_inmun_infecc_grouped91-170" = "Last immunization: 91-170 days",
-  "ultima_inmun_infecc_grouped170-246" = "Last immunization: 170-246 days",
-  "ultima_inmun_infecc_grouped>170" = "Last immunization: >170 days",
-  "ultima_inmun_infecc_grouped>246" = "Last immunization: >246 days",
+  "ultima_inmun_infecc_grouped171-247" = "Last immunization: 171-247 days",
+  "ultima_inmun_infecc_grouped>247" = "Last immunization: >247 days",
   "desc_sexoHombre" = "Sex (male)",
   "variant_periodα" = "Period of α predominance",
   "variant_periodα/Δ transition" = "α-Δ transition period",
@@ -96,7 +99,7 @@ variable_order_reduced <- rev(c(
 "AstraZeneca+AstraZeneca", "Moderna+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech",
 "AstraZeneca+AstraZeneca+Moderna", "AstraZeneca+AstraZeneca+Pfizer/BioNTech", "Moderna+Moderna+Moderna",
 "Pfizer/BioNTech+Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech", 
-"Last immunization: 14-45 days", "No previous immunization", "Last immunization: 46-90 days", "Last immunization: 91-170 days", "Last immunization: 170-246 days", "Last immunization: >170 days", "Last immunization: >246 days"
+"Last immunization: 14-45 days", "No previous immunization", "Last immunization: 46-90 days", "Last immunization: 91-170 days", "Last immunization: 171-247 days", "Last immunization: >247 days"
   ))
 
 added_variables <- rev(c(
@@ -122,8 +125,8 @@ added_variables <- rev(c(
 
 variable_order_all <- c(added_variables, variable_order_reduced)
   
-# Independent variables (no spline)
-predictor_vars <- c("desc_sexo", "variant_period", "asma", "cardiopatia_isquemica", "cirrosis_hepatica", "diabetes", "epoc", "hepatopatia_cronica_excepto_cirrosis", "hipertension", "insuficiencia_cardiaca", "insuficiencia_renal_cronica", "vih", "cancer_hematologico", "cancer_organo_solido", "ultima_inmun_infecc_bin")
+# Independent variables (without vaccine variable)
+predictor_vars <- c("age", "ultima_inmun_infecc_dias", "desc_sexo", "variant_period", "asma", "cardiopatia_isquemica", "cirrosis_hepatica", "diabetes", "epoc", "hepatopatia_cronica_excepto_cirrosis", "hipertension", "insuficiencia_cardiaca", "insuficiencia_renal_cronica", "vih", "cancer_hematologico", "cancer_organo_solido")
 # Independent variables (spline)
 spline_vars <- c("age")
 
@@ -153,31 +156,32 @@ extract_coef_pval_OR <- function(model) {
 ## GAM model with 1 spline (age)
 ```{r}
 
-# Function for Logistic Regression Analysis
+# Function for GAM-based logistic analysis and forest plot
 log_reg_gam_1s <- function(data, vaccine_variable, variables, file_name, title) {
   
-  print('Logistic Regression of Clinical Event')
+  print('GAM (logistic link) analysis of Clinical Event')
   start_time <- Sys.time() 
   print(Sys.time())
   
   # Define the order of variables for the model based on the 'variables' argument
   if (variables == "reduced") {
     variable_order <- variable_order_reduced
+    caption_confounders <- "Comorbidities, sex and SARS-CoV-2 variant period were also included as confounders"
   } else if (variables == "all") {
     variable_order <- variable_order_all
+    caption_confounders <- ""
   } else {
     # Handle invalid values for 'variables'
     stop("The 'variables' argument must be 'reduced' or 'all'")
   }
   
-# Construir fórmula dinámicamente
+# Build formula dynamically
   formula_text <- paste0( 
     "clinical_event ~ s(age) + ultima_inmun_infecc_grouped + ", vaccine_variable, " + desc_sexo + variant_period + asma + cardiopatia_isquemica + cirrosis_hepatica + diabetes + epoc + hepatopatia_cronica_excepto_cirrosis + hipertension + insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido"
     )
 formula_glm <- as.formula(formula_text)
 
-  
-  ## Fit logistic regression model
+  ## Fit GAM model (logistic link)
   model <- gam(
   formula = formula_glm,
   data = data,
@@ -202,7 +206,7 @@ formula_glm <- as.formula(formula_text)
         OR_CI_lower < 1 & OR_CI_upper < 1 ~ "Protective",
         TRUE ~ "Inconclusive"
       ),
-      adverse_protective = factor(adverse_protective, levels = c("Adverse", "Protective", "Inconclusive"))
+      adverse_protective = factor(adverse_protective, levels = c("Adverse", "Protective", "Inconclusive")), 
     ) %>%
     filter(term != "Intercept")
   
@@ -227,18 +231,32 @@ formula_glm <- as.formula(formula_text)
   ## Create the plot with ggplot2
   plot <- ggplot(model_df_2, 
                  aes(x = OR, xmin = OR_CI_lower, xmax = OR_CI_upper, y = term, color = adverse_protective)) +
-    geom_point(size = 2, na.rm = TRUE) +  
-    geom_errorbarh(height = 0.2, na.rm = TRUE) +
+    ### Anchor legend with all categories
+    geom_point(                                            
+      data = data.frame(
+        OR = 1, OR_CI_lower = 1, OR_CI_upper = 1,
+        term = factor(rep(levels(model_df_2$term)[1], 3), levels = levels(model_df_2$term)),
+        adverse_protective = factor(c("Adverse","Protective","Inconclusive"),
+                                    levels = c("Adverse","Protective","Inconclusive"))
+      ),
+      mapping = aes(x = OR, y = term, color = adverse_protective),
+      inherit.aes = FALSE,
+      alpha = 0 ##invisible points to ensure all legend categories appear    
+    ) +
+    geom_errorbarh(height = 0.2, na.rm = TRUE, show.legend = TRUE) +
+    geom_point(size = 2, na.rm = TRUE, shape = 16, show.legend = TRUE) +       
     geom_vline(xintercept = 1, linetype = "dashed") +
-    labs(x = "Odds Ratio", y = NULL, title = paste0("Logistic Regression. Odds Ratio and Confidence Intervals \nfor Composite Outcome-associated Factors.\n", title)) +
+    labs(x = "Odds Ratio", y = NULL, 
+         title = paste0("GAM (spline for age)\n Odds Ratios for Composite Outcome-associated Factors\n", title), 
+         caption = caption_confounders
+         ) +
     theme_minimal() +
     scale_color_manual(
       values = c("Adverse" = "#c0392b", "Protective" = "#27ae60", "Inconclusive" = "gray70"),
-      limits = c("Adverse", "Protective", "Inconclusive"), #ensure all levels appear in legend
-      labels = c("Adverse", "Protective", "Inconclusive"),
-      name = "Effect on Outcome",
-      guide = guide_legend(override.aes = list(size = 3)) 
-    ) +
+      breaks = c("Adverse", "Protective", "Inconclusive"),
+      limits = c("Adverse", "Protective", "Inconclusive"),
+      drop = FALSE, ##show all legend categories even if no data exists for some categories
+      name = "Effect on Outcome") +
     scale_x_continuous(limits = c(0, 5)) +
     theme(
       plot.background = element_rect(fill = "white"),
@@ -249,7 +267,14 @@ formula_glm <- as.formula(formula_text)
       legend.position = "top",
       axis.ticks = element_blank(),
       axis.text.x = element_text(color = "#2c3e50"),
-      axis.text.y = element_text(color = "#2c3e50"))
+      axis.text.y = element_text(color = "#2c3e50"), 
+      ## Center bottom caption to the center
+      plot.caption.position = "plot", plot.caption = element_text(
+        hjust = 0.5,
+        face = "italic",
+        size = 9,
+        margin = margin(t = 6)
+      ))
   
   print(plot)
 
@@ -262,7 +287,7 @@ formula_glm <- as.formula(formula_text)
     dpi = 300
   )
   
-   time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
+  time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
   print(paste("Time to run:", time_elapsed, "minutes"))
 }
 
@@ -270,7 +295,7 @@ formula_glm <- as.formula(formula_text)
 ```
 
 
-## GAM model with 2 splines
+## GAM model with 2 splines (not used)
 ```{r}
 
 # Function for Logistic Regression Analysis
@@ -386,6 +411,7 @@ log_reg_gam_2s <- function(data, vaccine_variable, file_name, title, number_spli
 
 ```
 
+
 ## GAM plot
 
 ```{r}
@@ -459,7 +485,6 @@ generate_gam_plot <- function(data, vaccine_variable, spline_var) {
       geom_line() +
       labs(title = title, x = spline_var, y = "Probability (%)") +
       ylim(0, 100) +
-      scale_x_continuous(breaks = scales::breaks_width(10)) +
       theme_minimal()
   }
 
@@ -483,6 +508,782 @@ generate_gam_plot <- function(data, vaccine_variable, spline_var) {
 
 ```
 
+## GAM plot wth breakpoints
+
+```{r}
+# ============================================================================
+# PIECEWISE LINEAR SEGMENTATION
+# ============================================================================
+segment_curve <- function(x, y, 
+                         min_points = 5, 
+                         span_val = 0.08, 
+                         min_slope_ratio = 2.0,
+                         min_prob_change = 5,
+                         min_delta_y_breakpoints = 3,
+                         min_segment_length_pct = 0.05,
+                         compare_bidirectional = TRUE,
+                         show_plot = TRUE) {
+  library(ggplot2)
+  
+  # ---- 0. Input validation ----
+  if (length(x) != length(y)) {
+    stop("x and y must have the same length")
+  }
+  if (length(x) < min_points * 2) {
+    warning("Data too short for segmentation, returning single segment")
+    return(list(
+      slopes = NA,
+      change_points = integer(0),
+      segments = list(data.frame(x = x, y = y)),
+      n_segments = 1,
+      significance_scores = numeric(0),
+      filtering_info = list(
+        original_breakpoints = 0,
+        filtered_breakpoints = 0,
+        min_slope_ratio = min_slope_ratio,
+        min_prob_change = min_prob_change,
+        min_delta_y_breakpoints = min_delta_y_breakpoints,
+        kept_most_significant = FALSE
+      )
+    ))
+  }
+  
+  # ---- 1. LOESS smoothing ----
+  loess_fit <- loess(y ~ x, span = span_val)
+  y_smooth <- predict(loess_fit)
+  
+  # ---- 2. Calculate derivative ----
+  dy <- diff(y_smooth)
+  dx <- diff(x)
+  slope <- dy / dx
+  
+  # ---- 3. Detect local maxima/minima ----
+  sign_change <- diff(sign(slope))
+  min_indices <- which(sign_change > 0) + 1
+  max_indices <- which(sign_change < 0) + 1
+  ext_indices <- sort(unique(c(min_indices, max_indices)))
+  
+  # If no extrema, curve is monotonic
+  if (length(ext_indices) == 0) {
+    cat("\nNo local extrema detected - curve is monotonic.\n")
+    return(list(
+      slopes = coef(lm(y_smooth ~ x))[2],
+      change_points = integer(0),
+      segments = list(data.frame(x = x, y = y_smooth)),
+      n_segments = 1,
+      significance_scores = numeric(0),
+      filtering_info = list(
+        original_breakpoints = 0,
+        filtered_breakpoints = 0,
+        min_slope_ratio = min_slope_ratio,
+        min_prob_change = min_prob_change,
+        min_delta_y_breakpoints = min_delta_y_breakpoints,
+        kept_most_significant = FALSE
+      )
+    ))
+  }
+  
+  # ---- 4. Create initial segments ----
+  breaks <- ext_indices
+  segments <- lapply(seq_along(breaks), function(i) {
+    start <- ifelse(i == 1, 1, breaks[i - 1] + 1)
+    end <- ifelse(i == length(breaks), length(x), breaks[i])
+    data.frame(x = x[start:end], y = y_smooth[start:end])
+  })
+  
+  # ---- 5. Calculate statistics for each segment ----
+  segment_stats <- data.frame(
+    seg = seq_along(segments),
+    slope = sapply(segments, function(seg) {
+      if (nrow(seg) >= min_points) {
+        coef(lm(y ~ x, data = seg))[2]
+      } else {
+        NA
+      }
+    }),
+    len = sapply(segments, nrow),
+    y_start = sapply(segments, function(seg) seg$y[1]),
+    y_end = sapply(segments, function(seg) seg$y[nrow(seg)]),
+    y_change = sapply(segments, function(seg) abs(seg$y[nrow(seg)] - seg$y[1]))
+  )
+  
+  # ---- 6. Calculate significance score for each breakpoint ----
+  significance_scores <- rep(0, length(breaks))
+  
+  for (i in seq_along(breaks)) {
+    # Compare with previous segment (if exists)
+    score_prev <- 0
+    if (i > 1 && !is.na(segment_stats$slope[i]) && !is.na(segment_stats$slope[i-1])) {
+      slope_prev <- abs(segment_stats$slope[i - 1])
+      slope_curr <- abs(segment_stats$slope[i])
+      if (slope_prev < 1e-6) slope_prev <- 1e-6
+      if (slope_curr < 1e-6) slope_curr <- 1e-6
+      slope_ratio_prev <- max(slope_curr / slope_prev, slope_prev / slope_curr)
+      
+      y_change_prev <- segment_stats$y_change[i-1] + segment_stats$y_change[i]
+      sign_change_prev <- ifelse(sign(segment_stats$slope[i]) != sign(segment_stats$slope[i-1]), 2, 1)
+      
+      score_prev <- (slope_ratio_prev * y_change_prev * sign_change_prev) / 10
+    }
+    
+    # Compare with next segment (if exists)
+    score_next <- 0
+    if (i < nrow(segment_stats) && !is.na(segment_stats$slope[i]) && !is.na(segment_stats$slope[i+1])) {
+      slope_curr <- abs(segment_stats$slope[i])
+      slope_next <- abs(segment_stats$slope[i + 1])
+      if (slope_curr < 1e-6) slope_curr <- 1e-6
+      if (slope_next < 1e-6) slope_next <- 1e-6
+      slope_ratio_next <- max(slope_next / slope_curr, slope_curr / slope_next)
+      
+      y_change_next <- segment_stats$y_change[i] + segment_stats$y_change[i+1]
+      sign_change_next <- ifelse(sign(segment_stats$slope[i]) != sign(segment_stats$slope[i+1]), 2, 1)
+      
+      score_next <- (slope_ratio_next * y_change_next * sign_change_next) / 10
+    }
+    
+    # Final score is the maximum between comparisons
+    significance_scores[i] <- max(score_prev, score_next)
+  }
+  
+  # ---- 7. Bidirectional filtering ----
+  min_segment_length <- length(x) * min_segment_length_pct
+  keep_seg <- rep(TRUE, length(breaks))
+  
+  # First pass: remove very short segments or small changes
+  for (i in seq_along(breaks)) {
+    seg_idx <- i
+    if (seg_idx <= length(segment_stats$slope)) {
+      if (is.na(segment_stats$slope[seg_idx]) || 
+          segment_stats$len[seg_idx] < min_points ||
+          segment_stats$y_change[seg_idx] < min_prob_change) {
+        keep_seg[i] <- FALSE
+      }
+    }
+  }
+  
+  # Second pass: compare with previous and next segments
+  for (i in seq_along(breaks)) {
+    if (!keep_seg[i]) next
+    
+    meets_criteria_with_prev <- TRUE
+    meets_criteria_with_next <- TRUE
+    
+    # Comparison with previous segment
+    if (i > 1 && keep_seg[i-1]) {
+      seg_curr <- i
+      seg_prev <- i - 1
+      
+      if (seg_curr <= length(segment_stats$slope) && 
+          seg_prev <= length(segment_stats$slope) &&
+          !is.na(segment_stats$slope[seg_curr]) && 
+          !is.na(segment_stats$slope[seg_prev])) {
+        
+        slope_prev <- abs(segment_stats$slope[seg_prev])
+        slope_curr <- abs(segment_stats$slope[seg_curr])
+        
+        if (slope_prev < 1e-6) slope_prev <- 1e-6
+        if (slope_curr < 1e-6) slope_curr <- 1e-6
+        
+        slope_ratio <- max(slope_curr / slope_prev, slope_prev / slope_curr)
+        sign_change <- sign(segment_stats$slope[seg_curr]) != sign(segment_stats$slope[seg_prev])
+        
+        if (slope_ratio < min_slope_ratio && 
+            !sign_change && 
+            segment_stats$len[seg_curr] < min_segment_length) {
+          meets_criteria_with_prev <- FALSE
+        }
+      }
+    }
+    
+    # Comparison with next segment
+    if (i < length(breaks) && keep_seg[i+1]) {
+      seg_curr <- i
+      seg_next <- i + 1
+      
+      if (seg_curr <= length(segment_stats$slope) && 
+          seg_next <= length(segment_stats$slope) &&
+          !is.na(segment_stats$slope[seg_curr]) && 
+          !is.na(segment_stats$slope[seg_next])) {
+        
+        slope_curr <- abs(segment_stats$slope[seg_curr])
+        slope_next <- abs(segment_stats$slope[seg_next])
+        
+        if (slope_curr < 1e-6) slope_curr <- 1e-6
+        if (slope_next < 1e-6) slope_next <- 1e-6
+        
+        slope_ratio <- max(slope_next / slope_curr, slope_curr / slope_next)
+        sign_change <- sign(segment_stats$slope[seg_curr]) != sign(segment_stats$slope[seg_next])
+        
+        if (slope_ratio < min_slope_ratio && 
+            !sign_change && 
+            segment_stats$len[seg_curr] < min_segment_length) {
+          meets_criteria_with_next <- FALSE
+        }
+      }
+    }
+    
+    # Keep breakpoint if meets criteria with either neighbor
+    if (compare_bidirectional) {
+      if (!meets_criteria_with_prev && !meets_criteria_with_next) {
+        keep_seg[i] <- FALSE
+      }
+    } else {
+      if (!meets_criteria_with_prev) {
+        keep_seg[i] <- FALSE
+      }
+    }
+  }
+  
+  # Third pass: remove consecutive extrema close in Y
+  i <- 1
+  while (i < length(breaks)) {
+    if (!keep_seg[i] || !keep_seg[i+1]) {
+      i <- i + 1
+      next
+    }
+    
+    y_diff <- abs(y_smooth[breaks[i+1]] - y_smooth[breaks[i]])
+    
+    if (y_diff < min_prob_change) {
+      if (significance_scores[i] < significance_scores[i + 1]) {
+        keep_seg[i] <- FALSE
+      } else {
+        keep_seg[i+1] <- FALSE
+      }
+    }
+    
+    i <- i + 1
+  }
+  
+  # Fourth pass: verify delta Y between consecutive breakpoints
+  kept_indices <- which(keep_seg)
+  
+  if (length(kept_indices) > 1) {
+    i <- 1
+    while (i < length(kept_indices)) {
+      idx1 <- breaks[kept_indices[i]]
+      idx2 <- breaks[kept_indices[i + 1]]
+      
+      delta_y <- abs(y_smooth[idx2] - y_smooth[idx1])
+      
+      if (delta_y < min_delta_y_breakpoints) {
+        if (significance_scores[kept_indices[i]] < significance_scores[kept_indices[i + 1]]) {
+          keep_seg[kept_indices[i]] <- FALSE
+          kept_indices <- which(keep_seg)
+        } else {
+          keep_seg[kept_indices[i + 1]] <- FALSE
+          kept_indices <- which(keep_seg)
+        }
+      } else {
+        i <- i + 1
+      }
+    }
+  }
+  
+  # ---- 8. If no points remain, keep most significant ----
+  kept_indices <- which(keep_seg)
+  
+  if (length(kept_indices) == 0 && length(breaks) > 0) {
+    most_significant_idx <- which.max(significance_scores)
+    kept_indices <- most_significant_idx
+    
+    cat("\n")
+    cat("======================================================================\n")
+    cat("  WARNING: No breakpoints met all filtering criteria.\n")
+    cat("  Keeping the most significant breakpoint (index:", most_significant_idx, ")\n")
+    cat("  Significance score:", round(significance_scores[most_significant_idx], 2), "\n")
+    cat("======================================================================\n\n")
+  }
+  
+  # ---- 9. Calculate final change points ----
+  if (length(kept_indices) > 0) {
+    change_points <- breaks[kept_indices]
+    change_points <- change_points[!is.na(change_points)]
+    change_points <- change_points[change_points > 0 & change_points < length(x)]
+    change_points <- sort(unique(change_points))
+  } else {
+    change_points <- integer(0)
+  }
+  
+  # ---- 10. Create final segments ----
+  segments_opt <- list()
+  if (length(change_points) == 0) {
+    segments_opt[[1]] <- data.frame(x = x, y = y_smooth)
+  } else {
+    if (change_points[1] > 1) {
+      segments_opt[[1]] <- data.frame(
+        x = x[1:change_points[1]], 
+        y = y_smooth[1:change_points[1]]
+      )
+    }
+    
+    if (length(change_points) > 1) {
+      for (i in 2:length(change_points)) {
+        start_idx <- change_points[i - 1] + 1
+        end_idx <- change_points[i]
+        
+        if (start_idx <= end_idx && start_idx <= length(x) && end_idx <= length(x)) {
+          segments_opt[[i]] <- data.frame(
+            x = x[start_idx:end_idx],
+            y = y_smooth[start_idx:end_idx]
+          )
+        }
+      }
+    }
+    
+    last_start <- change_points[length(change_points)] + 1
+    if (last_start <= length(x)) {
+      segments_opt[[length(change_points) + 1]] <- data.frame(
+        x = x[last_start:length(x)],
+        y = y_smooth[last_start:length(y_smooth)]
+      )
+    }
+  }
+  
+  segments_opt <- segments_opt[sapply(segments_opt, function(s) nrow(s) > 0)]
+  
+  # ---- 11. Calculate final slopes ----
+  slopes_opt <- sapply(segments_opt, function(seg) {
+    if(nrow(seg) > 1) {
+      coef(lm(y ~ x, data = seg))[2]
+    } else {
+      NA
+    }
+  })
+  
+  # ---- 12. Return results ----
+  return(list(
+    slopes = slopes_opt,
+    change_points = change_points,
+    segments = segments_opt,
+    n_segments = length(segments_opt),
+    significance_scores = significance_scores,
+    filtering_info = list(
+      original_breakpoints = length(breaks),
+      filtered_breakpoints = length(change_points),
+      min_slope_ratio = min_slope_ratio,
+      min_prob_change = min_prob_change,
+      min_delta_y_breakpoints = min_delta_y_breakpoints,
+      compare_bidirectional = compare_bidirectional,
+      kept_most_significant = length(kept_indices) == 1 && sum(keep_seg, na.rm = TRUE) == 0
+    )
+  ))
+}
+
+# ============================================================================
+# GAM FUNCTIONS
+# ============================================================================
+
+run_gam <- function(outcome, data, smoothing_term, predictors, vaccine_variable) {
+  print(Sys.time())
+  predictors <- setdiff(predictors, smoothing_term)
+  formula_str <- paste(outcome, " ~ s(", smoothing_term, ") +", vaccine_variable, 
+                       " + ", paste(predictors, collapse = " + "))
+  formula <- as.formula(formula_str)
+  gam_model <- gam(formula, 
+                   data = data, 
+                   family = binomial(), 
+                   method = "REML")
+  print(summary(gam_model))
+  print(paste("k value used for spline is:", gam_model$smooth[[1]]$bs.dim))
+  return(gam_model)
+}
+
+extract_gam_data <- function(model, smoothing_term) {
+  gam_plot_data <- plot(model, pages = 1)[[1]] 
+  x <- gam_plot_data$x
+  fit <- gam_plot_data$fit
+  se <- gam_plot_data$se
+  prob <- exp(fit) / (1 + exp(fit)) * 100 
+  lower <- exp(fit - 2 * se) / (1 + exp(fit - 2 * se)) * 100
+  upper <- exp(fit + 2 * se) / (1 + exp(fit + 2 * se)) * 100
+  data.frame(smoothing_term = x, probability = prob, lower = lower, upper = upper) 
+}
+
+create_gam_plot <- function(data, title, smoothing_term) {
+  ggplot(data, aes(x = smoothing_term, y = probability)) + 
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = "blue") +
+    geom_line(color = "blue") +
+    labs(title = title, x = smoothing_term, y = "Probability (%)") +
+    ylim(0, 100) + 
+    scale_x_continuous(breaks = scales::breaks_width(50)) +
+    theme_minimal()
+}
+
+create_gam_plot_with_breakpoints_and_histogram <- function(plot_data, 
+                                                            raw_data, 
+                                                            breakpoints, 
+                                                            title, 
+                                                            smoothing_term,
+                                                            histogram_bins = 30,
+                                                            show_breakpoints = TRUE) {
+  # Calculate histogram data
+  x_raw <- raw_data[[smoothing_term]]
+  x_range <- range(plot_data$smoothing_term, na.rm = TRUE)
+  
+  hist_data <- hist(x_raw, breaks = histogram_bins, plot = FALSE)
+  
+  # Create histogram dataframe (normalized by total)
+  hist_df <- data.frame(
+    x = hist_data$mids,
+    frequency = hist_data$counts / sum(hist_data$counts) * 100
+  )
+  
+  # Find maximum frequency for scaling
+  max_freq <- max(hist_df$frequency, na.rm = TRUE)
+  
+  # Scale histogram to full 0-100 range
+  target_max_height <- 100  # Tallest bar reaches top of plot
+  hist_df$frequency_scaled <- (hist_df$frequency / max_freq) * target_max_height
+  
+  # Calculate percentiles (tertiles and quartiles)
+  median_val <- median(x_raw, na.rm = TRUE)
+  q1_val <- quantile(x_raw, 0.25, na.rm = TRUE)
+  q3_val <- quantile(x_raw, 0.75, na.rm = TRUE)
+  t1_val <- quantile(x_raw, 1/3, na.rm = TRUE)
+  t2_val <- quantile(x_raw, 2/3, na.rm = TRUE)
+  p95_val <- quantile(x_raw, 0.95, na.rm = TRUE)
+  
+  # Create plot
+  p <- ggplot(plot_data, aes(x = smoothing_term, y = probability)) + 
+    # IQR shaded region at bottom
+    annotate("rect", 
+             xmin = q1_val, xmax = q3_val, 
+             ymin = 0, ymax = 8,
+             fill = "darkgreen", alpha = 0.2) +
+    # # Tertile 1 line (segmented to avoid text overlap)
+    # annotate("segment",
+    #          x = t1_val, xend = t1_val,
+    #          y = 9, yend = 82,
+    #          linetype = "dashed", 
+    #          color = "darkgreen", 
+    #          linewidth = 0.7,
+    #          alpha = 0.5) +
+    # Median line (segmented to avoid text overlap)
+    annotate("segment",
+             x = median_val, xend = median_val,
+             y = 9, yend = 92,
+             linetype = "dashed", 
+             color = "darkgreen", 
+             linewidth = 1,
+             alpha = 0.7) +
+    # # Tertile 2 line (segmented to avoid text overlap)
+    # annotate("segment",
+    #          x = t2_val, xend = t2_val,
+    #          y = 9, yend = 82,
+    #          linetype = "dashed", 
+    #          color = "darkgreen", 
+    #          linewidth = 0.7,
+    #          alpha = 0.5) +
+    # p95 line (segmented to avoid text overlap)
+    annotate("segment",
+             x = p95_val, xend = p95_val,
+             y = 0, yend = 80,
+             linetype = "dashed", 
+             color = "darkgreen", 
+             linewidth = 0.7,
+             alpha = 0.5) +
+    # Histogram bars
+    geom_col(data = hist_df, 
+             aes(x = x, y = frequency_scaled), 
+             fill = "gray70", 
+             alpha = 0.4,
+             width = diff(hist_data$breaks)[1]) +
+    # GAM confidence ribbon
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = "blue") +
+    # GAM probability line
+    geom_line(aes(y = probability), color = "blue", linewidth = 1) +
+    # Breakpoints (only if show_breakpoints = TRUE and breakpoints exist)
+    {if (show_breakpoints && length(breakpoints) > 0) {
+      breakpoint_data <- data.frame(x = breakpoints)
+      breakpoint_data$y <- sapply(breakpoints, function(bp) {
+        idx <- which.min(abs(plot_data$smoothing_term - bp))
+        plot_data$probability[idx]
+      })
+      
+      list(
+        geom_vline(data = data.frame(x = breakpoints),
+                   aes(xintercept = x), 
+                   linetype = "dashed", 
+                   color = "red", 
+                   alpha = 0.6,
+                   linewidth = 0.7),
+        geom_point(data = breakpoint_data, 
+                   aes(x = x, y = y), 
+                   color = "red", 
+                   size = 3, 
+                   shape = 19)
+      )
+    }} +
+    # # Text annotations for tertiles and median
+    # annotate("text", x = t1_val, y = 80, 
+    #          label = paste0("T1: ", format(round(t1_val, 1), big.mark = ",", scientific = FALSE)), 
+    #          color = "darkgreen", size = 3, hjust = 1.2, fontface = "bold", alpha = 0.8) +
+    annotate("text", x = median_val, y = 96, 
+             label = paste0("Median: ", format(round(median_val, 1), big.mark = ",", scientific = FALSE)), 
+             color = "darkgreen", size = 3.5, hjust = 0.5, fontface = "bold") +
+    # annotate("text", x = t2_val, y = 80, 
+    #          label = paste0("T2: ", format(round(t2_val, 1), big.mark = ",", scientific = FALSE)), 
+    #          color = "darkgreen", size = 3, hjust = -0.2, fontface = "bold", alpha = 0.8) +
+    annotate("text", x = p95_val, y = 80, 
+             label = paste0("P95: ", format(round(p95_val, 1), big.mark = ",", scientific = FALSE)), 
+             color = "darkgreen", size = 3, hjust = 0.5, fontface = "bold", alpha = 0.8) +
+    annotate("text", x = mean(c(q1_val, q3_val)), y = 4, 
+             label = paste0("IQR: ", format(round(q1_val, 1), big.mark = ",", scientific = FALSE), 
+                           " - ", format(round(q3_val, 1), big.mark = ",", scientific = FALSE)), 
+             color = "darkgreen", size = 3, fontface = "bold") +
+    # Dual Y axes
+    scale_y_continuous(
+      name = "Probability (%)",
+      limits = c(0, 100),
+      sec.axis = sec_axis(
+        trans = ~ . * max_freq / target_max_height,
+        name = "Frequency (% of sample)",
+        breaks = seq(0, ceiling(max_freq), length.out = 6)
+      )
+    ) + 
+    scale_x_continuous(breaks = scales::breaks_width(50)) +
+    labs(title = paste(title, "- with Distribution"), 
+         x = smoothing_term) +
+    theme_minimal() +
+    theme(
+      axis.title.y.right = element_text(color = "gray50"),
+      axis.text.y.right = element_text(color = "gray50")
+    )
+  
+  return(p)
+}
+
+# ============================================================================
+# MAIN FUNCTION
+# ============================================================================
+
+gam_analysis_with_segmentation <- function(data, outcome, smoothing_term, 
+                                           predictors, vaccine_variable,
+                                           min_points = 5,
+                                           min_slope_ratio = 2.0,
+                                           min_prob_change = 5,
+                                           min_segment_length_pct = 0.05,
+                                           histogram_bins = 30,
+                                           show_breakpoints = TRUE) { 
+  start_time <- Sys.time()
+  print(paste("Analysis of", smoothing_term))
+  
+  # 1. Run GAM model
+  print(paste("Running GAM model for:", outcome))
+  model <- run_gam(outcome, data, smoothing_term, predictors, vaccine_variable) 
+  plot_data <- extract_gam_data(model, smoothing_term) 
+  plot_data$outcome <- outcome 
+  
+  # 2. Apply piecewise linear segmentation
+  print("Applying piecewise linear segmentation...")
+  seg_result <- segment_curve(
+    x = plot_data$smoothing_term,
+    y = plot_data$probability,
+    min_points = min_points,
+    min_slope_ratio = min_slope_ratio,
+    min_prob_change = min_prob_change,
+    min_segment_length_pct = min_segment_length_pct
+  )
+  
+  # 3. Display breakpoint table
+  cat("\n")
+  cat("======================================================================\n")
+  cat("  BREAKPOINTS ON X-AXIS (Segmentation)\n")
+  cat("======================================================================\n\n")
+  
+  if (length(seg_result$change_points) > 0) {
+    break_x <- plot_data$smoothing_term[seg_result$change_points]
+    break_prob <- plot_data$probability[seg_result$change_points]
+    
+    breaks_table <- data.frame(
+      Segment = 1:length(break_x),
+      Breakpoint_X = round(break_x, 2),
+      Probability_Y = round(break_prob, 2)
+    )
+    names(breaks_table) <- c("Segment", 
+                             paste("Breakpoint at", smoothing_term),
+                             "Probability (%)")
+    print(breaks_table, row.names = FALSE)
+    
+    if (seg_result$filtering_info$kept_most_significant) {
+      cat("\n  Note: Only the most significant breakpoint was kept.\n")
+    }
+  } else {
+    cat("  No breakpoints detected (curve is monotonic).\n")
+  }
+  
+  cat("\n======================================================================\n\n")
+  
+  # 4. Display filtering summary
+  cat("======================================================================\n")
+  cat("  FILTERING SUMMARY\n")
+  cat("======================================================================\n")
+  cat("  Original breakpoints detected:", seg_result$filtering_info$original_breakpoints, "\n")
+  cat("  Breakpoints after filtering:", seg_result$filtering_info$filtered_breakpoints, "\n")
+  cat("  Number of segments:", seg_result$n_segments, "\n")
+  cat("  Parameters used:\n")
+  cat("    - min_slope_ratio:", min_slope_ratio, "\n")
+  cat("    - min_prob_change:", min_prob_change, "%\n")
+  cat("    - min_segment_length_pct:", min_segment_length_pct * 100, "%\n")
+  cat("======================================================================\n\n")
+  
+  # 5. Create and print basic plot
+  gam_plot <- create_gam_plot(plot_data, outcome, smoothing_term)
+  print(gam_plot)
+  
+  # 6. Create and save plot with histogram (and optionally breakpoints)
+  if (length(seg_result$change_points) > 0) {
+    break_x <- plot_data$smoothing_term[seg_result$change_points]
+  } else {
+    break_x <- numeric(0)
+  }
+  
+  gam_plot_with_histogram <- create_gam_plot_with_breakpoints_and_histogram(
+    plot_data = plot_data,
+    raw_data = data,
+    breakpoints = break_x,
+    title = outcome, 
+    smoothing_term = smoothing_term,
+    histogram_bins = histogram_bins,
+    show_breakpoints = show_breakpoints
+  )
+  print(gam_plot_with_histogram)
+  
+  # Adjust filename based on whether breakpoints are shown
+  if (show_breakpoints) {
+    filename_suffix <- "_breakpoints"
+  } else {
+    filename_suffix <- "_distribution"
+  }
+  
+  ggsave(gam_plot_with_histogram,
+         filename = paste0("~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_", 
+                           smoothing_term, "_", vaccine_variable, ".png"),
+         device = "jpeg", units = "px", dpi = 300, width = 3000, height = 2000)
+  
+  # 7. Print elapsed time
+  time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
+  print(paste("Time to run:", time_elapsed, "minutes"))
+  print(Sys.time())
+  
+  # 8. Return results
+  return(list(
+    plot = gam_plot,
+    plot_with_histogram = gam_plot_with_histogram,
+    model = model,
+    segmentation = seg_result,
+    plot_data = plot_data
+  ))
+}
+
+```
+
+## GAM plot - interactive
+
+```{r}
+# --- Funciones auxiliares ---
+extract_gam_data_interactive <- function(model, spline_var) {
+  gp <- plot(model, term = spline_var, pages = 1)[[1]]
+  x   <- gp$x
+  fit <- gp$fit
+  se  <- gp$se
+
+  prob  <- plogis(fit) * 100
+  lower <- plogis(fit - 2*se) * 100
+  upper <- plogis(fit + 2*se) * 100
+
+  tibble(x = x, probability = prob, lower = lower, upper = upper)
+}
+
+create_gam_plotly <- function(df, title, xlab) {
+  # índices de mínimo y máximo
+  idx_min <- which.min(df$probability)
+  idx_max <- which.max(df$probability)
+  ext_df  <- df[c(idx_min, idx_max), ] %>%
+    mutate(extreme = c("Min", "Max"))
+
+  p <- ggplot(df, aes(x = x, y = probability)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3) +
+    geom_line() +
+    geom_point(data = ext_df, size = 2) +
+    geom_vline(xintercept = ext_df$x, linetype = "dotted") +
+    labs(
+      title = title,
+      x = xlab,
+      y = "Probability (%)",
+      caption = "*Comorbidities, sex and SARS‑CoV‑2 variant period were also included as confounders"
+    ) +
+    ylim(0, 100) +
+    theme_minimal() +
+    theme(plot.caption = element_text(hjust = 0, face = "italic", size = 9))
+
+  # Tooltips personalizados
+  ply <- ggplotly(
+    p,
+    tooltip = "text"
+  ) %>%
+    style(
+      text = paste0(
+        xlab, ": ", round(df$x, 1),
+        "<br>Probability: ", round(df$probability, 1), "%",
+        "<br>95% CI: [", round(df$lower, 1), ", ", round(df$upper, 1), "]"
+      ),
+      traces = 2 # traza de la línea
+    ) %>%
+    style(
+      text = paste0(
+        ext_df$extreme, "<br>",
+        xlab, ": ", round(ext_df$x, 1),
+        "<br>Probability: ", round(ext_df$probability, 1), "%"
+      ),
+      traces = 3 # traza de los puntos extremo
+    )
+
+  return(ply)
+}
+
+# --- Función principal ---
+generate_gam_plot_interactive <- function(data, vaccine_variable, spline_var) {
+  message("GAM of Clinical Event")
+  start_time <- Sys.time(); print(start_time)
+
+  if (spline_var == "age") {
+    order_smooth <- "s(age) + s(ultima_inmun_infecc_dias)"
+    xlab <- "Age"
+  } else if (spline_var == "ultima_inmun_infecc_dias") {
+    order_smooth <- "s(ultima_inmun_infecc_dias) + s(age)"
+    xlab <- "Days since last immunization/infection"
+  } else {
+    stop("spline_var debe ser 'age' o 'ultima_inmun_infecc_dias'")
+  }
+
+  formula_text <- paste0(
+    "clinical_event ~ ", order_smooth, " + ",
+    vaccine_variable, " + desc_sexo + variant_period + asma + cardiopatia_isquemica + ",
+    "cirrosis_hepatica + diabetes + epoc + hepatopatia_cronica_excepto_cirrosis + hipertension + ",
+    "insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido"
+  )
+  model <- gam(as.formula(formula_text), data = data, family = binomial(), method = "REML")
+  print(summary(model))
+
+  plot_data <- extract_gam_data_interactive(model, spline_var)
+  ply <- create_gam_plotly(
+    plot_data,
+    paste0("GAM (", spline_var, "). Probability vs ", xlab, " — model: ", vaccine_variable),
+    xlab
+  )
+
+  # Guardar como HTML interactivo
+  out_path <- paste0("~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_", vaccine_variable, "_2spline_", spline_var, ".html")
+  saveWidget(ply, file = out_path, selfcontained = TRUE)
+
+  time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
+  message("Time to run: ", time_elapsed, " minutes")
+  return(ply)
+}
+```
+
 # Forest plot - GAM - 1 spline (age)
 
 ## Reduced variables in forest plot
@@ -493,7 +1294,7 @@ log_reg_gam_1s(
   vaccine_variable = "vac_1shot",
   variables = "reduced",
   file_name = "vac1shot_reduced",
-  title = "1-shot Regimen"
+  title = "One-dose COVID-19 vaccination regimen"
   )
 
 ```
@@ -505,7 +1306,7 @@ log_reg_gam_1s(
   vaccine_variable = "vac_2shot",
   variables = "reduced",
   file_name = "vac2shot_reduced",
-  title = "2-shot Regimen"
+  title = "Two-dose COVID-19 vaccination regimen"
   )
 
 ```
@@ -517,7 +1318,7 @@ log_reg_gam_1s(
   vaccine_variable = "vac_3shot",
   variables = "reduced",
   file_name = "vac3shot_reduced",  
-  title = "3-shot Regimen"
+  title = "Three-dose COVID-19 vaccination regimen"
   )
 
 ```
@@ -530,7 +1331,7 @@ log_reg_gam_1s(
   vaccine_variable = "vac_1shot",
   variables = "all",
   file_name = "vac1shot_all",
-  title = "1-shot Regimen"
+  title = "One-dose COVID-19 vaccination regimen"
   )
 
 ```
@@ -542,7 +1343,7 @@ log_reg_gam_1s(
   vaccine_variable = "vac_2shot",
   variables = "all",
   file_name = "vac2shot_all",
-  title = "2-shot Regimen"
+  title = "Two-dose COVID-19 vaccination regimen"
   )
 
 ```
@@ -554,12 +1355,12 @@ log_reg_gam_1s(
   vaccine_variable = "vac_3shot",
   variables = "all",
   file_name = "vac3shot_all",  
-  title = "3-shot Regimen"
+  title = "Three-dose COVID-19 vaccination regimen"
   )
 
 ```
 
-# Forest plot - GAM - 2 splines
+# Forest plot - GAM - 2 splines (not used)
 
 ## vac_1shot
 ```{r}
@@ -597,11 +1398,74 @@ log_reg_gam_2s(
 
 # GAM Plot of last immunization
 
+## vac_1shot - breakpoints
+
+```{r}
+# Call the GAM function without breakpoints
+result_with_breakpoints <- gam_analysis_with_segmentation(
+  data = final_dataset,
+  outcome = "clinical_event",
+  smoothing_term = "ultima_inmun_infecc_dias",
+  predictors = predictor_vars,
+  vaccine_variable = "vac_1shot", 
+  min_points = 0,
+  min_slope_ratio = 0,
+  min_prob_change = 0,
+  min_segment_length_pct = 0.0,
+  histogram_bins = 100,
+  show_breakpoints = TRUE  # True for showing red breakpoint lines and points
+)
+
+```
+
+## vac_2shot - breakpoints
+
+```{r}
+# Call the GAM function without breakpoints
+result_with_breakpoints <- gam_analysis_with_segmentation(
+  data = final_dataset,
+  outcome = "clinical_event",
+  smoothing_term = "ultima_inmun_infecc_dias",
+  predictors = predictor_vars,
+  vaccine_variable = "vac_2shot", 
+  min_points = 0,
+  min_slope_ratio = 0,
+  min_prob_change = 0,
+  min_segment_length_pct = 0.0,
+  histogram_bins = 100,
+  show_breakpoints = TRUE  # True for showing red breakpoint lines and points
+)
+
+```
+
+## vac_3shot - breakpoints
+
+```{r}
+# Call the GAM function without breakpoints
+result_with_breakpoints <- gam_analysis_with_segmentation(
+  data = final_dataset,
+  outcome = "clinical_event",
+  smoothing_term = "ultima_inmun_infecc_dias",
+  predictors = predictor_vars,
+  vaccine_variable = "vac_3shot", 
+  min_points = 0,
+  min_slope_ratio = 0,
+  min_prob_change = 0,
+  min_segment_length_pct = 0.0,
+  histogram_bins = 100,
+  show_breakpoints = TRUE  # True for showing red breakpoint lines and points
+)
+
+```
+
 ## vac_1shot
 ```{r}
 generate_gam_plot(data = final_dataset,
                   vaccine_variable = "vac_1shot",
                   spline_var = "ultima_inmun_infecc_dias")
+
+
+
 ```
 
 ## vac_2shot
