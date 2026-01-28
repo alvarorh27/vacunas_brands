@@ -45,11 +45,11 @@ dict_terms <- c(
   "age_grouped12-30" = "Age (12-30)",
   "age_grouped31-65" = "Age (31-65)",
   "age_grouped>65" = "Age (>65)",
-  "ultima_inmun_infecc_groupedNone" = "No previous immunization",
-  "ultima_inmun_infecc_grouped14-45" = "Last immunization: 14-45 days",
-  "ultima_inmun_infecc_grouped46-90" = "Last immunization: 46-90 days",
-  "ultima_inmun_infecc_grouped91-170" = "Last immunization: 91-170 days",
-  "ultima_inmun_infecc_grouped171-247" = "Last immunization: 171-247 days",
+  "ultima_inmun_infecc_groupedNo previous immunization" = "No previous immunization",
+  "ultima_inmun_infecc_grouped14-50" = "Last immunization: 14-50 days",
+  "ultima_inmun_infecc_grouped51-125" = "Last immunization: 51-125 days",
+  "ultima_inmun_infecc_grouped126-180" = "Last immunization: 126-180 days",
+  "ultima_inmun_infecc_grouped181-247" = "Last immunization: 181-247 days",
   "ultima_inmun_infecc_grouped>247" = "Last immunization: >247 days",
   "desc_sexoHombre" = "Sex (male)",
   "variant_periodα" = "Period of α predominance",
@@ -69,37 +69,33 @@ dict_terms <- c(
   "vihSí" = "HIV+",
   "cancer_hematologicoSí" = "Haematologic cancer",
   "cancer_organo_solidoSí" = "Solid organ cancer",
-  "ultima_inmun_infecc_binNone" = "No vaccination/infection",
-  "ultima_inmun_infecc_bin31-60" = "Last vaccination/infection (31-60 days ago)",
-  "ultima_inmun_infecc_bin61-90" = "Last vaccination/infection (61-90 days ago)",
-  "ultima_inmun_infecc_bin91-120" = "Last vaccination/infection (91-120 days ago)",
-  "ultima_inmun_infecc_bin121-180" = "Last vaccination/infection (121-180 days ago)",
-  "ultima_inmun_infecc_bin>180" = "Last vaccination/infection (>180 days ago)",
-  "vac_1shotAstraZeneca" = "AstraZeneca",
-  "vac_1shotJanssen" = "Janssen",
-  "vac_1shotModerna" = "Moderna",
-  "vac_1shotPfizer/BioNTech" = "Pfizer/BioNTech",
+  "vac_1shotAstraZeneca" = "Vaxzevria",
+  "vac_1shotJanssen" = "Jcovden",
+  "vac_1shotModerna" = "Spikevax",
+  "vac_1shotPfizer/BioNTech" = "Comirnaty",
   "vac_1shotOther" = "Other",
-  "vac_2shotAstraZeneca+AstraZeneca" = "AstraZeneca+AstraZeneca",
-  "vac_2shotModerna+Moderna" = "Moderna+Moderna",
-  "vac_2shotPfizer/BioNTech+Pfizer/BioNTech" = "Pfizer/BioNTech+Pfizer/BioNTech",
+  "vac_2shotAstraZeneca+AstraZeneca" = "Vaxzevria+Vaxzevria",
+  "vac_2shotModerna+Moderna" = "Spikevax+Spikevax",
+  "vac_2shotPfizer/BioNTech+Pfizer/BioNTech" = "Comirnaty+Comirnaty",
   "vac_2shotOther" = "Other",
-  "vac_3shotAstraZeneca+AstraZeneca+Moderna" = "AstraZeneca+AstraZeneca+Moderna",
-  "vac_3shotAstraZeneca+AstraZeneca+Pfizer/BioNTech" = "AstraZeneca+AstraZeneca+Pfizer/BioNTech",
-  "vac_3shotModerna+Moderna+Moderna" = "Moderna+Moderna+Moderna",
-  "vac_3shotPfizer/BioNTech+Pfizer/BioNTech+Moderna" = "Pfizer/BioNTech+Pfizer/BioNTech+Moderna",
-  "vac_3shotPfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech" = "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech"
+  "vac_3shotAstraZeneca+AstraZeneca+Moderna" = "Vaxzevria+Vaxzevria+Spikevax",
+  "vac_3shotAstraZeneca+AstraZeneca+Pfizer/BioNTech" = "Vaxzevria+Vaxzevria+Comirnaty",
+  "vac_3shotModerna+Moderna+Moderna" = "Spikevax+Spikevax+Spikevax",
+  "vac_3shotPfizer/BioNTech+Pfizer/BioNTech+Moderna" = "Comirnaty+Comirnaty+Spikevax",
+  "vac_3shotPfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech" = "Comirnaty+Comirnaty+Comirnaty"
 )
 
   # Variable mapping and ordering
 variable_order_reduced <- rev(c(
 "Intercept", "Age", 
 "Age (12-30)", "Age (31-65)", "Age (>65)", 
-"AstraZeneca", "Janssen", "Moderna", "Pfizer/BioNTech",
-"AstraZeneca+AstraZeneca", "Moderna+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech",
-"AstraZeneca+AstraZeneca+Moderna", "AstraZeneca+AstraZeneca+Pfizer/BioNTech", "Moderna+Moderna+Moderna",
-"Pfizer/BioNTech+Pfizer/BioNTech+Moderna", "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech", 
-"Last immunization: 14-45 days", "No previous immunization", "Last immunization: 46-90 days", "Last immunization: 91-170 days", "Last immunization: 171-247 days", "Last immunization: >247 days"
+"Vaxzevria", "Jcovden", "Spikevax", "Comirnaty",
+"Vaxzevria+Vaxzevria", "Spikevax+Spikevax", "Comirnaty+Comirnaty",
+"Vaxzevria+Vaxzevria+Spikevax", "Vaxzevria+Vaxzevria+Comirnaty", 
+"Spikevax+Spikevax+Spikevax", "Comirnaty+Comirnaty+Spikevax", "Comirnaty+Comirnaty+Comirnaty", 
+"No previous immunization", "Last immunization: 14-50 days",
+"Last immunization: 51-125 days", "Last immunization: 126-180 days", 
+"Last immunization: 181-247 days", "Last immunization: >247 days"
   ))
 
 added_variables <- rev(c(
@@ -157,7 +153,8 @@ extract_coef_pval_OR <- function(model) {
 ```{r}
 
 # Function for GAM-based logistic analysis and forest plot
-log_reg_gam_1s <- function(data, vaccine_variable, variables, file_name, title) {
+log_reg_gam_1s <- function(data, vaccine_variable, variables, 
+                           file_name, title, x_scale) {
   
   print('GAM (logistic link) analysis of Clinical Event')
   start_time <- Sys.time() 
@@ -166,7 +163,7 @@ log_reg_gam_1s <- function(data, vaccine_variable, variables, file_name, title) 
   # Define the order of variables for the model based on the 'variables' argument
   if (variables == "reduced") {
     variable_order <- variable_order_reduced
-    caption_confounders <- "Comorbidities, sex and SARS-CoV-2 variant period were also included as confounders"
+    caption_confounders <- "Model adjusted for age (spline), sex, comorbidities, and SARS-CoV-2 variant period"
   } else if (variables == "all") {
     variable_order <- variable_order_all
     caption_confounders <- ""
@@ -224,7 +221,7 @@ formula_glm <- as.formula(formula_text)
       select(term, OR, OR_CI_lower, OR_CI_upper, adverse_protective) %>%
       mutate(term = factor(term, levels = variable_order)) %>%
       arrange(factor(term, levels = rev(variable_order))),
-  caption = paste0(title, " - Odds Ratio and Confidence Intervals for composite outcome-associated Factors")
+  caption = paste0(title, " - Odds Ratios for Factors Associated with the Composite Outcome")
 )
   print(html_output)
   
@@ -247,7 +244,7 @@ formula_glm <- as.formula(formula_text)
     geom_point(size = 2, na.rm = TRUE, shape = 16, show.legend = TRUE) +       
     geom_vline(xintercept = 1, linetype = "dashed") +
     labs(x = "Odds Ratio", y = NULL, 
-         title = paste0("GAM (spline for age)\n Odds Ratios for Composite Outcome-associated Factors\n", title), 
+         title = paste0("Odds Ratios for Factors Associated with the Composite Outcome\n", title), 
          caption = caption_confounders
          ) +
     theme_minimal() +
@@ -257,7 +254,7 @@ formula_glm <- as.formula(formula_text)
       limits = c("Adverse", "Protective", "Inconclusive"),
       drop = FALSE, ##show all legend categories even if no data exists for some categories
       name = "Effect on Outcome") +
-    scale_x_continuous(limits = c(0, 5)) +
+    scale_x_continuous(limits = x_scale) +
     theme(
       plot.background = element_rect(fill = "white"),
       panel.grid.major.y = element_blank(),
@@ -1212,7 +1209,7 @@ create_gam_plotly <- function(df, title, xlab) {
       title = title,
       x = xlab,
       y = "Probability (%)",
-      caption = "*Comorbidities, sex and SARS‑CoV‑2 variant period were also included as confounders"
+      caption = "*Model adjusted for age (spline), sex, comorbidities, and SARS-CoV-2 variant period"
     ) +
     ylim(0, 100) +
     theme_minimal() +
@@ -1294,7 +1291,8 @@ log_reg_gam_1s(
   vaccine_variable = "vac_1shot",
   variables = "reduced",
   file_name = "vac1shot_reduced",
-  title = "One-dose COVID-19 vaccination regimen"
+  title = "Model: One-dose COVID-19 vaccination regimen", 
+  x_scale = c(0, 2)
   )
 
 ```
@@ -1306,7 +1304,8 @@ log_reg_gam_1s(
   vaccine_variable = "vac_2shot",
   variables = "reduced",
   file_name = "vac2shot_reduced",
-  title = "Two-dose COVID-19 vaccination regimen"
+  title = "Model: Two-dose COVID-19 vaccination regimen", 
+  x_scale = c(0, 2)
   )
 
 ```
@@ -1318,7 +1317,8 @@ log_reg_gam_1s(
   vaccine_variable = "vac_3shot",
   variables = "reduced",
   file_name = "vac3shot_reduced",  
-  title = "Three-dose COVID-19 vaccination regimen"
+  title = "Model: Three-dose COVID-19 vaccination regimen", 
+  x_scale = c(0, 2)
   )
 
 ```
@@ -1331,7 +1331,8 @@ log_reg_gam_1s(
   vaccine_variable = "vac_1shot",
   variables = "all",
   file_name = "vac1shot_all",
-  title = "One-dose COVID-19 vaccination regimen"
+  title = "Model: One-dose COVID-19 vaccination regimen", 
+  x_scale = c(0, 4)
   )
 
 ```
@@ -1343,7 +1344,8 @@ log_reg_gam_1s(
   vaccine_variable = "vac_2shot",
   variables = "all",
   file_name = "vac2shot_all",
-  title = "Two-dose COVID-19 vaccination regimen"
+  title = "Model: Two-dose COVID-19 vaccination regimen", 
+  x_scale = c(0, 4)
   )
 
 ```
@@ -1355,7 +1357,8 @@ log_reg_gam_1s(
   vaccine_variable = "vac_3shot",
   variables = "all",
   file_name = "vac3shot_all",  
-  title = "Three-dose COVID-19 vaccination regimen"
+  title = "Model: Three-dose COVID-19 vaccination regimen", 
+  x_scale = c(0, 4)
   )
 
 ```
