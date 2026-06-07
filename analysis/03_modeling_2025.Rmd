@@ -22,7 +22,12 @@ library(kableExtra)
 library(magrittr)
 # library(plotly)
 library(htmlwidgets)
-# library(webshot2)
+library(webshot)
+
+## webshot2/chromote requires a Chrome-based browser, which is not available
+## on this machine. Use webshot + the locally installed PhantomJS instead.
+Sys.setenv(PATH = paste("~/bin", Sys.getenv("PATH"), sep = .Platform$path.sep))
+Sys.setenv(OPENSSL_CONF = "/dev/null") # work around PhantomJS/OpenSSL3 config error
 ```
 
 # Load File
@@ -216,16 +221,52 @@ formula_glm <- as.formula(formula_text)
   )
   
   ## Generate HTML table
-  html_output <- htmlTable(
-    model_df_2 %>%
-      select(term, OR, OR_CI_lower, OR_CI_upper, adverse_protective) %>%
-      mutate(term = factor(term, levels = variable_order)) %>%
-      arrange(factor(term, levels = rev(variable_order))),
-  caption = paste0(title, " - Odds Ratios for Factors Associated with the Composite Outcome")
-)
+  or_table_html <- model_df_2 %>%
+    mutate(
+      term          = factor(term, levels = variable_order),
+      `OR (95% CI)` = sprintf("%.2f (%.2f–%.2f)", OR, OR_CI_lower, OR_CI_upper),
+      `p-value`     = case_when(
+        p.value < 0.001 ~ "p &lt; 0.001",
+        TRUE            ~ sprintf("p = %.3f", p.value)
+      ),
+      Association   = as.character(adverse_protective)
+    ) %>%
+    arrange(factor(term, levels = rev(variable_order))) %>%
+    select(term, `OR (95% CI)`, `p-value`, Association)
+
+  html_output <- kable(
+    or_table_html,
+    format    = "html",
+    escape    = FALSE,
+    col.names = c("Variable", "OR (95% CI)", "p-value", "Association"),
+    align     = c("l", "c", "c", "c"),
+    caption   = paste0(title, " - Odds Ratios for Factors Associated with the CSO")
+  ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover", "condensed", "bordered"),
+      full_width        = FALSE,
+      font_size         = 13,
+      position          = "left"
+    ) %>%
+    column_spec(1, width = "22em", color = "black") %>%
+    column_spec(2, width = "12em", color = "black") %>%
+    column_spec(3, width = "9em",  color = "black") %>%
+    column_spec(4, width = "10em", color = "black")
+
   print(html_output)
+
+  ## Save table as PNG
+  ## kableExtra::save_kable() only supports webshot2 (Chrome-based), which is
+  ## unavailable here, so render the HTML to a temp file and screenshot it
+  ## with webshot/PhantomJS instead.
+  table_png_file <- path.expand(paste0("~/projects/vacunas_brands_2025/figures/OR/tbl_gam_1spline_", file_name, ".png"))
+  table_html_file <- tempfile(fileext = ".html")
+  save_kable(html_output, file = table_html_file)
+  webshot::webshot(table_html_file, file = table_png_file, zoom = 3)
+  img <- magick::image_trim(magick::image_read(table_png_file))
+  magick::image_write(img, table_png_file)
   
-  ## Create the plot with ggplot2
+  ## Create the forest plot with ggplot2
   plot <- ggplot(model_df_2, 
                  aes(x = OR, xmin = OR_CI_lower, xmax = OR_CI_upper, y = term, color = adverse_protective)) +
     ### Anchor legend with all categories
@@ -244,7 +285,7 @@ formula_glm <- as.formula(formula_text)
     geom_point(size = 2, na.rm = TRUE, shape = 16, show.legend = TRUE) +       
     geom_vline(xintercept = 1, linetype = "dashed") +
     labs(x = "Odds Ratio", y = NULL, 
-         title = paste0("Odds Ratios for Factors Associated with the Composite Outcome\n", title), 
+         title = paste0("Odds Ratios for Factors Associated with the CSO\n", title), 
          caption = caption_confounders
          ) +
     theme_minimal() +
@@ -275,7 +316,7 @@ formula_glm <- as.formula(formula_text)
   
   print(plot)
 
-  ## Save plot
+  ## Save forest plot
   ggsave(
     filename = paste0("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_gam_1spline_", file_name, ".png"),
     plot = plot, 
