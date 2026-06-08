@@ -1,0 +1,402 @@
+---
+title: "02_tables_clinicalevent"
+# output: html_document
+---
+
+# Environment
+
+```{r}
+library(dplyr)
+library(tibble)
+library(magrittr)
+library(tableone)
+library(kableExtra)
+library(summarytools)
+library(gtsummary)
+library(knitr)
+library(flextable)
+library(officer)
+
+```
+
+# Load File
+
+```{r}
+final_dataset <- (
+  readRDS(
+    "~/projects/vacunas_brands_2025/Rfiles/final_dataset_brands_excluded.rds"
+  )
+)
+
+```
+
+# Statistics
+```{r}
+# Print dfSummary
+stview(dfSummary(final_dataset)) 
+
+# Define the list of continuous variables that are not normally distributed
+nonnormal_variables <- c('age') 
+
+# Testing normality with Kolmogorov-Smirnov test
+# A low p-value (usually lower than 0.05) suggests that the variable does not follow a normal distribution
+for (col in nonnormal_variables) {
+  test_result <- ks.test(final_dataset[[col]], "pnorm", mean(final_dataset[[col]]), sd(final_dataset[[col]]))
+  print(paste("Variable:", col))
+  print(test_result)
+  if (test_result$p.value < 0.05) {
+    print(paste(col, "is likely NOT normally distributed (p-value < 0.05)."))
+  } else {
+    print(paste(col, "is likely normally distributed (p-value >= 0.05)."))
+  }
+}
+```
+# Functions and Dictionaries
+```{r}
+# List of variables and labels for Table1 
+# ── Dictionary: raw rowname fragments → clean display labels ──────────────
+# This maps what CreateTableOne actually writes in rownames to what we want
+rowname_labels <- c(
+  # Parent variables
+  "age"                                        = "Age (years) (median [IQR])",
+  "desc_sexo"                                  = "Sex = Male (%)",
+  "ultima_inmun_infecc_grouped"                = "Last immunization (days) (%)",
+  "variant_period"                             = "Variant period (%)",
+  "vaccine_bin"                                = "Vaccinated (%)",
+  "n_vacunas_covid"                            = "Number of COVID doses (%)",
+  "vac_1shot"                                  = "One-dose vaccination regimen (%)",
+  "vac_2shot"                                  = "Two-dose vaccination regimen (%)",
+  "vac_3shot"                                  = "Three-dose vaccination regimen (%)",
+  "hosp_stay_bin"                              = "Hospitalisation (%)",
+  "icu_stay_bin"                               = "ICU admission (%)",
+  "mortality30d"                               = "30-day Mortality (%)",
+  "asma"                                       = "Asthma (%)",
+  "epoc"                                       = "COPD (%)",
+  "cardiopatia_isquemica"                      = "Ischemic heart disease (%)",
+  "insuficiencia_cardiaca"                     = "Heart failure (%)",
+  "hipertension"                               = "Hypertension (%)",
+  "cirrosis_hepatica"                          = "Hepatic cirrhosis (%)",
+  "hepatopatia_cronica_excepto_cirrosis"       = "Chronic liver disease (excl. cirrhosis) (%)",
+  "diabetes"                                   = "Diabetes (%)",
+  "insuficiencia_renal_cronica"                = "Chronic kidney disease (%)",
+  "vih"                                        = "HIV+ (%)",
+  "cancer_organo_solido"                       = "Solid organ cancer (%)",
+  "cancer_hematologico"                        = "Haematologic cancer (%)",
+  # Subcategories — Last immunization
+  # (both the raw level name and the make.names dot→space mangled version)
+  "No previous immunization"                   = "No previous immunization",
+  "14-50"                                      = "14–50 days",
+  "14 50"                                      = "14–50 days",
+  "51-125"                                     = "51–125 days",
+  "51 125"                                     = "51–125 days",
+  "126-180"                                    = "126–180 days",
+  "126 180"                                    = "126–180 days",
+  "181-247"                                    = "181–247 days",
+  "181 247"                                    = "181–247 days",
+  ">247"                                       = ">247 days",
+  "247"                                        = ">247 days",
+  # Subcategories — Variant period
+  # (both slash-preserved and slash→dot→space mangled versions)
+  "Before α"                                   = "Before α",
+  "α"                                          = "α predominance",
+  "α/Δ transition"                             = "α/Δ transition",
+  "α Δ transition"                             = "α/Δ transition",
+  "Δ"                                          = "Δ predominance",
+  "Δ/Ο transition"                             = "Δ/Ο transition",   # plain Ο
+  "Δ/Ό transition"                             = "Δ/Ο transition",   # accented Ό (as stored in data)
+  "Δ Ο transition"                             = "Δ/Ο transition",   # slash→space mangled
+  "Δ Ό transition"                             = "Δ/Ο transition",   # accented + mangled
+  "Ο"                                          = "Ο predominance",   # plain Ο
+  "Ό"                                          = "Ο predominance",   # accented Ό (as stored in data)
+  # Subcategories — Doses
+  "Ninguna"                                    = "None",
+  "Una"                                        = "One dose",
+  "Dos"                                        = "Two doses",
+  "Tres"                                       = "Three doses",
+  # Subcategories — 1st dose brand
+  "None"                                       = "None",
+  "AstraZeneca"                                = "Vaxzevria",
+  "Janssen"                                    = "Jcovden",
+  "Moderna"                                    = "Spikevax",
+  "Pfizer/BioNTech"                            = "Comirnaty",
+  "Other"                                      = "Other",
+  # Subcategories — 2-dose schedules
+  "AstraZeneca+AstraZeneca"                    = "Vaxzevria + Vaxzevria",
+  "AstraZeneca+Moderna"                        = "Vaxzevria + Spikevax",
+  "AstraZeneca+Pfizer/BioNTech"               = "Vaxzevria + Comirnaty",
+  "Janssen+Moderna"                            = "Jcovden + Spikevax",
+  "Janssen+Pfizer/BioNTech"                   = "Jcovden + Comirnaty",
+  "Moderna+Moderna"                            = "Spikevax + Spikevax",
+  "Moderna+Pfizer/BioNTech"                   = "Spikevax + Comirnaty",
+  "Pfizer/BioNTech+Pfizer/BioNTech"           = "Comirnaty + Comirnaty",
+  "Pfizer/BioNTech+Moderna"                   = "Comirnaty + Spikevax",
+  # Subcategories — 3-dose schedules
+  "AstraZeneca+AstraZeneca+Moderna"           = "Vaxzevria + Vaxzevria + Spikevax",
+  "AstraZeneca+AstraZeneca+Pfizer/BioNTech"   = "Vaxzevria + Vaxzevria + Comirnaty",
+  "AstraZeneca+Pfizer/BioNTech+Moderna"       = "Vaxzevria + Comirnaty + Spikevax",
+  "AstraZeneca+Pfizer/BioNTech+Pfizer/BioNTech" = "Vaxzevria + Comirnaty + Comirnaty",
+  "Moderna+Moderna+Moderna"                   = "Spikevax + Spikevax + Spikevax",
+  "Moderna+Moderna+Pfizer/BioNTech"           = "Spikevax + Spikevax + Comirnaty",
+  "Moderna+Pfizer/BioNTech+Pfizer/BioNTech"  = "Spikevax + Comirnaty + Comirnaty",
+  "Pfizer/BioNTech+Pfizer/BioNTech+Moderna"  = "Comirnaty + Comirnaty + Spikevax",
+  "Pfizer/BioNTech+Pfizer/BioNTech+Pfizer/BioNTech" = "Comirnaty + Comirnaty + Comirnaty"
+)
+
+# Function to detect categorical variables
+detect_categorical <- function(vars_in_table1, table1_dataset) {
+  cat_variables <- c()
+  cont <- 1
+  
+  for (i in 1:length(vars_in_table1)) {
+    if (n_distinct(table1_dataset[[vars_in_table1[i]]]) <= 10) {
+      print(i)
+      print(vars_in_table1[i])
+      print(names(table1_dataset[vars_in_table1[i]]))
+      cat_variables[cont] <- names(table1_dataset[vars_in_table1[i]])
+      cont <- cont + 1
+    }
+  }
+  
+  return(cat_variables)
+}
+
+# Function to assign labels to variable names
+assign_labels <- function(vars_in_table1, table1_dataset, labels_list) {
+  for (var in names(labels_list)) {
+    if (var %in% vars_in_table1) {
+      label(table1_dataset[[var]]) <- labels_list[[var]]
+    }
+  }
+  return(table1_dataset)
+}
+
+# ── Helper: clean a single raw rowname ────────────────────────────────────
+clean_rowname <- function(raw) {
+  s <- trimws(raw)
+
+  # Step 1: direct lookup — catches level names with special chars
+  #   (Greek letters, slashes, hyphens, plus signs) before any dot conversion
+  #   corrupts them.
+  if (s %in% names(rowname_labels)) return(rowname_labels[[s]])
+
+  # Step 2: undo make.names() encoding for names that R mangled into dots.
+  #   make.names() prefixes names starting with a digit with "X" and replaces
+  #   non-alphanumeric characters with ".".
+  s <- sub("^X(?=\\d)", "", s, perl = TRUE)  # remove leading X before digit
+  s <- sub("^X\\.\\.\\.", "", s)             # remove X... prefix for ...names
+  s <- gsub("\\.\\.", "¬", s)               # double-dot → placeholder
+  s <- gsub("\\.", " ", s)                  # single dot  → space
+  s <- gsub("¬", ".", s)                    # placeholder → real dot
+  s <- trimws(s)
+
+  # Step 3: lookup after dot conversion
+  if (s %in% names(rowname_labels)) return(rowname_labels[[s]])
+
+  # No fuzzy match — it would misfire (e.g. key "α" matching inside "α Δ transition").
+  # Every case that needs translation must have an explicit entry in rowname_labels.
+  return(s)
+}
+
+# Function to create and export a docx table using flextable package
+create_flextable <- function(table1, values, colwidths, title, save_name) {
+  
+  # ── 1. Data frame preparation ──────────────────────────────────────────────
+  table_df <- as.data.frame(table1) %>%
+    rownames_to_column(var = "Variable") %>%
+    select(-any_of("test"))
+  
+  # ── 2. Detect subcategory rows BEFORE cleaning ────────────────────────────
+  is_subcat <- grepl("^\\s+", table_df$Variable)
+  
+  # ── 3. Clean and relabel Variable column ──────────────────────────────────
+  table_df$Variable <- sapply(table_df$Variable, clean_rowname)
+  
+  # ── 4. Design tokens (mec-vent style: no fill, clean borders) ────────────
+  col_text      <- "#2e2925"
+  col_border    <- "#aaaaaa"   # thin grey horizontal rules
+  col_border_hd <- "#2e2925"   # thick dark line top/bottom of header
+  font_body     <- "Calibri"
+  
+  set_flextable_defaults(
+    font.family  = font_body,
+    font.size    = 9.5,
+    font.color   = col_text,
+    border.color = col_border
+  )
+  
+  # ── 5. Build flextable ────────────────────────────────────────────────────
+  ft <- flextable(table_df) %>%
+    
+    # Group header row
+    add_header_row(values = values, colwidths = colwidths) %>%
+    
+    # ── Alignment ─────────────────────────────────────────────────────────
+    align(align = "left",   part = "all",    j = 1) %>%
+    align(align = "center", part = "body",   j = seq(2, ncol(table_df))) %>%
+    align(align = "center", part = "header") %>%
+    align(align = "left",   part = "header", i = 2, j = 1) %>%
+    
+    # ── Header typography: plain, no fill ─────────────────────────────────
+    bold(part = "header") %>%
+    fontsize(part = "header", size = 10) %>%
+    color(part = "header", color = col_text) %>%
+    bg(part = "header", bg = "white") %>%
+    
+    # ── Body: no fill ─────────────────────────────────────────────────────
+    bg(part = "body", bg = "white") %>%
+    
+    # ── Subcategory indentation ────────────────────────────────────────────
+    padding(i = which( is_subcat), j = 1, padding.left = 18, part = "body") %>%
+    padding(i = which(!is_subcat), j = 1, padding.left =  4, part = "body") %>%
+    
+    # ── Bold on parent rows; italic on subcategory rows ───────────────────
+    bold(i = which(!is_subcat), j = 1, part = "body") %>%
+    italic(i = which(is_subcat), j = 1, part = "body") %>%
+    
+    # ── Borders: horizontal only, no verticals ────────────────────────────
+    border_remove() %>%
+    
+    # Header: thick line top, thin between header rows, thick line bottom
+    hline_top(
+      part   = "header",
+      border = fp_border(color = col_border_hd, width = 1.5)
+    ) %>%
+    hline(
+      i      = 1, part = "header",
+      border = fp_border(color = col_border, width = 0.5)
+    ) %>%
+    hline_bottom(
+      part   = "header",
+      border = fp_border(color = col_border_hd, width = 1.5)
+    ) %>%
+    
+    # Body: thin line between every row, thick line at bottom
+    border_inner_h(
+      part   = "body",
+      border = fp_border(color = col_border, width = 0.5)
+    ) %>%
+    hline_bottom(
+      part   = "body",
+      border = fp_border(color = col_border_hd, width = 1.5)
+    ) %>%
+    
+    # ── Layout ────────────────────────────────────────────────────────────
+    set_table_properties(layout = "autofit", width = 1) %>%
+    
+    # ── Caption ───────────────────────────────────────────────────────────
+    set_caption(
+      caption = as_paragraph(
+        as_chunk(title, props = fp_text(
+          bold        = TRUE,
+          font.size   = 10,
+          font.family = font_body,
+          color       = col_text
+        ))
+      )
+    )
+  
+  # ── 6. Export ─────────────────────────────────────────────────────────────
+  out_path <- file.path(
+    "~/projects/vacunas_brands_2025", "tables",
+    paste0(save_name, ".docx")
+  )
+  read_docx() %>%
+    body_add_par("", style = "Normal") %>%
+    body_add_flextable(value = ft) %>%
+    print(target = out_path)
+  
+  message("Table exported: ", out_path)
+  invisible(ft)
+}
+```
+
+
+# Table one. Stratified by composite clinical outcome
+
+```{r}
+# Lists the variables we are going to be including in table1 (except for the stratification variable)
+vars_in_table1 <- c('age', 'desc_sexo', 'ultima_inmun_infecc_grouped', 'variant_period', 
+                  'vaccine_bin', 'n_vacunas_covid', 'vac_1shot', 'vac_2shot', 'vac_3shot', 
+                  'hosp_stay_bin', 'icu_stay_bin', 'mortality30d',
+                  'asma', 'epoc', 'cardiopatia_isquemica', 'insuficiencia_cardiaca', 'hipertension', 
+                  'cirrosis_hepatica', 'hepatopatia_cronica_excepto_cirrosis', 'diabetes', 'insuficiencia_renal_cronica', 
+                  'vih', 'cancer_organo_solido', 'cancer_hematologico')
+
+# Creates a dataset with only selected variables using our original dataset and generates an empty list for storing categorical variables
+stratifyby <- c("clinical_event")
+table1_dataset <- final_dataset[,c(vars_in_table1, stratifyby)]
+cat_variables <- rep(NA, length(vars_in_table1))
+
+# Translate Spanish factor levels to English so column headers and subcategory
+# rows are displayed correctly without relying on post-hoc string cleaning.
+recode_levels <- function(x, ...) {
+  lvl_map <- c(...)
+  levels(x)[levels(x) %in% names(lvl_map)] <-
+    lvl_map[levels(x)[levels(x) %in% names(lvl_map)]]
+  x
+}
+
+table1_dataset <- table1_dataset %>%
+  mutate(
+    # Stratification variable → fixes "No"/"Sí" column headers
+    clinical_event              = recode_levels(factor(clinical_event), "Sí" = "Yes"),
+    # Binary variables
+    vaccine_bin                 = recode_levels(factor(vaccine_bin),    "Sí" = "Yes"),
+    hosp_stay_bin               = recode_levels(factor(hosp_stay_bin),  "Sí" = "Yes"),
+    icu_stay_bin                = recode_levels(factor(icu_stay_bin),   "Sí" = "Yes"),
+    mortality30d                = recode_levels(factor(mortality30d),   "Sí" = "Yes"),
+    desc_sexo                   = recode_levels(factor(desc_sexo),
+                                    "Hombre" = "Male", "Mujer" = "Female"),
+    # Comorbidities (Si/No → Yes/No)
+    across(c(asma, epoc, cardiopatia_isquemica, insuficiencia_cardiaca,
+             hipertension, cirrosis_hepatica, hepatopatia_cronica_excepto_cirrosis,
+             diabetes, insuficiencia_renal_cronica, vih,
+             cancer_organo_solido, cancer_hematologico),
+           ~ recode_levels(factor(.x), "Sí" = "Yes")),
+    # Dose count labels
+    n_vacunas_covid = recode_levels(factor(n_vacunas_covid),
+      "Ninguna" = "None", "Una" = "One dose",
+      "Dos" = "Two doses", "Tres" = "Three doses"
+    )
+  )
+
+# Assign labels to variable names
+table1_dataset <- assign_labels(vars_in_table1, table1_dataset, rowname_labels)
+
+# Detects whether a variable is categorical or not and eliminates null values
+cat_variables <- detect_categorical(vars_in_table1, table1_dataset)
+cat_variables<-cat_variables[!is.na(cat_variables)]
+
+# Creates table one
+table1 <- print(
+  CreateTableOne(
+    vars = vars_in_table1,
+    strata = stratifyby,
+    factorVars = cat_variables,
+    data = table1_dataset,
+    addOverall = T
+  ),
+  nonnormal = nonnormal_variables,
+  formatOptions = list(big.mark = ","),
+  varLabels = T
+)
+
+# Run this in console for html output, the code below uses kableExtra::
+ starification_cats<-n_distinct(table1_dataset[,stratifyby])
+ 
+# For console
+ table1 %>%
+   kbl(caption = "Table 1 of base model: Clinical Event" , align = "c") %>%
+   kable_classic_2(full_width = F, html_font = "Cambria")
+   # add_header_above(c("", "", "No", "Yes", "", ""))
+
+# Export table in docx
+create_flextable(
+  table1 = table1,
+  values = c("", "", "Clinical Event", ""),
+  colwidths = c(1, 1, 2, 1),
+  title = "Baseline characteristics of study population stratified by clinical event",
+  save_name = "table1_vacunas_brands"
+)
+
+```
