@@ -87,7 +87,7 @@ final_dataset_excluded <- final_dataset %>%
     # Set factor levels in the desired order
     ultima_inmun_infecc_grouped = factor(
       ultima_inmun_infecc_grouped,
-      levels = c("None", "14-50", "51-125", "126-180", "181-247", ">247")
+      levels = c("No previous immunization", "14-50", "51-125", "126-180", "181-247", ">247")
     )
   )
 

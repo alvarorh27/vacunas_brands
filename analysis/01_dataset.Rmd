@@ -41,7 +41,7 @@ convertir_valores <- function(x) {ifelse(x == -1, 0, 1)}
 ## COVID tests
 
 ```{r RESULTADOS_PRUEBAS_COVID}
-# TODO pendientes de PRDA
+# TODO pending PRDA items
 
 ##############################################################################################################
 # Loading data + selecting columns + mutating date variables. >>
@@ -59,8 +59,8 @@ resultados_pruebas_COVID <-
 
 resultados_pruebas_COVID %<>% distinct()
 
-# TODO aplicar criterios de exclusión según orden razonado de carga de datasets!
-# TODO MODIFICAR EL PERIODO DE ESTUDIO. SOLO TENEMOS PCRS Y VACUNAS HASTA EL 31 DE MARZO DE 2022
+# TODO apply exclusion criteria following the reasoned order of dataset loading!
+# TODO MODIFY THE STUDY PERIOD. WE ONLY HAVE PCR TESTS AND VACCINES UP TO MARCH 31, 2022
 
 ############################
 ############################
@@ -986,12 +986,12 @@ infect_bdu_pupa_cmbd_vacunas <- setDT(infect_bdu_pupa_cmbd) %>%
   as.data.frame() %>% 
   mutate(n_vacunas_covid = if_else(is.na(n_vacunas_covid), 0, as.numeric(n_vacunas_covid)))
 
-# TODO explicar por qué los que no tenían ninguna dosis al momento de la infección tienen un valor NA en 
+# TODO explain why patients who had not received any dose at the time of infection have an NA value in
 # inmun_mas6meses_bin & inmun_meses_quant
 
-# TODO entiendo que este análisis habría que hacerlo sólo con los vacunados. No puedes asignarle un valor
-# "arbitrario" a los pacientes sin vacunar porque distorsionarías la medición del efecto de haberse 
-# vacunado en aquellso vacunados.
+# TODO I understand that this analysis should be restricted to vaccinated patients. You cannot assign an
+# "arbitrary" value to unvaccinated patients, as that would distort the measurement of the effect of
+# being vaccinated among those who were vaccinated.
 
 
 

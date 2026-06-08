@@ -334,7 +334,7 @@ formula_glm <- as.formula(formula_text)
 ## GAM plot
 
 ```{r}
-# Definir la función para ajustar el modelo GAM y crear el gráfico
+# Define the function to fit the GAM model and create the plot
 generate_gam_plot <- function(data, vaccine_variable, spline_var) {
 
   # ── Labels ─────────────────────────────────────────────────────────────────
@@ -1219,7 +1219,7 @@ gam_analysis_with_segmentation <- function(data, outcome, smoothing_term,
 ## GAM plot - interactive
 
 ```{r}
-# --- Funciones auxiliares ---
+# --- Helper functions ---
 extract_gam_data_interactive <- function(model, spline_var) {
   gp <- plot(model, term = spline_var, pages = 1)[[1]]
   x   <- gp$x
@@ -1234,7 +1234,7 @@ extract_gam_data_interactive <- function(model, spline_var) {
 }
 
 create_gam_plotly <- function(df, title, xlab) {
-  # índices de mínimo y máximo
+  # indices of minimum and maximum
   idx_min <- which.min(df$probability)
   idx_max <- which.max(df$probability)
   ext_df  <- df[c(idx_min, idx_max), ] %>%
@@ -1255,7 +1255,7 @@ create_gam_plotly <- function(df, title, xlab) {
     theme_minimal() +
     theme(plot.caption = element_text(hjust = 0, face = "italic", size = 9))
 
-  # Tooltips personalizados
+  # Custom tooltips
   ply <- ggplotly(
     p,
     tooltip = "text"
@@ -1266,7 +1266,7 @@ create_gam_plotly <- function(df, title, xlab) {
         "<br>Probability: ", round(df$probability, 1), "%",
         "<br>95% CI: [", round(df$lower, 1), ", ", round(df$upper, 1), "]"
       ),
-      traces = 2 # traza de la línea
+      traces = 2 # line trace
     ) %>%
     style(
       text = paste0(
@@ -1274,13 +1274,13 @@ create_gam_plotly <- function(df, title, xlab) {
         xlab, ": ", round(ext_df$x, 1),
         "<br>Probability: ", round(ext_df$probability, 1), "%"
       ),
-      traces = 3 # traza de los puntos extremo
+      traces = 3 # extreme-points trace
     )
 
   return(ply)
 }
 
-# --- Función principal ---
+# --- Main function ---
 generate_gam_plot_interactive <- function(data, vaccine_variable, spline_var) {
   message("GAM of Clinical Event")
   start_time <- Sys.time(); print(start_time)
@@ -1311,7 +1311,7 @@ generate_gam_plot_interactive <- function(data, vaccine_variable, spline_var) {
     xlab
   )
 
-  # Guardar como HTML interactivo
+  # Save as interactive HTML
   out_path <- paste0("~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_", vaccine_variable, "_2spline_", spline_var, ".html")
   saveWidget(ply, file = out_path, selfcontained = TRUE)
 
