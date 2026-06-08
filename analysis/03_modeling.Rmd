@@ -329,147 +329,42 @@ formula_glm <- as.formula(formula_text)
   print(paste("Time to run:", time_elapsed, "minutes"))
 }
 
-
 ```
-
-
-## GAM model with 2 splines (not used)
-```{r}
-
-# Function for Logistic Regression Analysis
-log_reg_gam_2s <- function(data, vaccine_variable, file_name, title, number_splines) {
-  
-  print('Logistic Regression of Clinical Event')
-  start_time <- Sys.time() 
-  print(Sys.time())
-  
-  ## Change independent variables for spline of age + last immunization days
-  if (number_splines == 2) {
-    # Add 'ultima_inmun_infecc_dias' to spline_vars
-    spline_vars <- c("age", "ultima_inmun_infecc_dias")
-    # And remove 'ultima_inmun_infecc_bin' from predictor_vars
-    predictor_vars <- predictor_vars[-which(predictor_vars == "ultima_inmun_infecc_bin")]
-  }
-  
-  ## Define spline terms
-  spline_terms <- paste0("s(", spline_vars, ")")
-  # Combine predictor variables with spline terms
-  all_predictors <- c(spline_terms, predictor_vars)
-  # Create formula
-  formula <- as.formula(paste("clinical_event", "~", paste(all_predictors, collapse = " + "), " + ", vaccine_variable))
-  
-  ## Fit logistic regression model
-  model <- gam(
-    formula,
-    data = data,
-    family = binomial(),
-    method = "REML"
-  )
-  
-  print(summary(model))
-  
-  ## Extract odds ratios
-  model_df_1 <- extract_coef_pval_OR(model)
-  
-  model_df_2 <- model_df_1 %>%
-    mutate(
-      term = case_when(
-        term == "(Intercept)" ~ "Intercept",
-        TRUE ~ coalesce(dict_terms[term], term)  # Use dictionary mapping
-      ),
-      term = factor(term, levels = variable_order),
-      adverse_protective = case_when(
-        OR_CI_lower > 1 & OR_CI_upper > 1 ~ "Adverse",
-        OR_CI_lower < 1 & OR_CI_upper < 1 ~ "Protective",
-        TRUE ~ "Inconclusive"
-      ),
-      adverse_protective = factor(adverse_protective, levels = c("Adverse", "Protective", "Inconclusive"))
-    ) %>%
-    filter(term != "Intercept")
-  
-  ## Save OR table
-  write.csv(
-    model_df_2 %>%
-      arrange(factor(term, levels = rev(variable_order))),
-    paste0("~/projects/vacunas_brands_2025/data/OR_", file_name, ".csv"),
-    row.names = FALSE
-  )
-  
-  ## Generate HTML table
-  html_output <- htmlTable(
-    model_df_2 %>%
-      select(term, OR, OR_CI_lower, OR_CI_upper, adverse_protective) %>%
-      mutate(term = factor(term, levels = variable_order)) %>%
-      arrange(factor(term, levels = rev(variable_order))),
-  caption = paste0(title, " - Odds Ratio and Confidence Intervals for composite outcome-associated Factors")
-)
-  print(html_output)
-  
-  ## Create the plot with ggplot2
-  plot <- ggplot(model_df_2, 
-                 aes(x = OR, xmin = OR_CI_lower, xmax = OR_CI_upper, y = term, color = adverse_protective)) +
-    geom_point(size = 2, na.rm = TRUE) +  
-    geom_errorbarh(height = 0.2, na.rm = TRUE) +
-    geom_vline(xintercept = 1, linetype = "dashed") +
-    labs(x = "Odds Ratio", y = NULL, title = paste0("Logistic Regression. Odds Ratio and Confidence Intervals \nfor Composite Outcome-associated Factors.\n", title)) +
-    theme_minimal() +
-    scale_color_manual(
-      values = c("Adverse" = "#c0392b", "Protective" = "#27ae60", "Inconclusive" = "gray70"),
-      limits = c("Adverse", "Protective", "Inconclusive"), #ensure all levels appear in legend
-      labels = c("Adverse", "Protective", "Inconclusive"),
-      name = "Effect on Outcome",
-      guide = guide_legend(override.aes = list(size = 3)) 
-    ) +
-    scale_x_continuous(limits = c(0, 5)) +
-    theme(
-      plot.background = element_rect(fill = "white"),
-      panel.grid.major.y = element_blank(),
-      panel.grid.minor.y = element_blank(),
-      plot.title = element_text(hjust = 0.5),
-      plot.title.position = "plot",
-      legend.position = "top",
-      axis.ticks = element_blank(),
-      axis.text.x = element_text(color = "#2c3e50"),
-      axis.text.y = element_text(color = "#2c3e50"))
-  
-  print(plot)
-
-  ## Save plot
-  ggsave(
-    filename = paste0("~/projects/vacunas_brands_2025/figures/Forest_plot/fp_gam_2spline_", file_name, ".png"),
-    plot = plot, 
-    width = 8, 
-    height = 6, 
-    dpi = 300
-  )
-  
-   time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
-  print(paste("Time to run:", time_elapsed, "minutes"))
-}
-
-```
-
 
 ## GAM plot
 
 ```{r}
 # Definir la función para ajustar el modelo GAM y crear el gráfico
 generate_gam_plot <- function(data, vaccine_variable, spline_var) {
-  # Ajuste del modelo GAM
-  print('GAM linear regression of Clinical Event')
-  start_time <- Sys.time()
-  print(Sys.time())
 
-  # Definir el orden dinámico de las smooths
+  # ── Labels ─────────────────────────────────────────────────────────────────
+  vaccine_regimen_labels <- c(
+    vac_1shot = "One-dose vaccination regimen",
+    vac_2shot = "Two-dose vaccination regimen",
+    vac_3shot = "Three-dose vaccination regimen"
+  )
+  regimen_label <- unname(vaccine_regimen_labels[vaccine_variable])
+  if (is.na(regimen_label)) stop("Unknown vaccine_variable: ", vaccine_variable)
+
   if (spline_var == "age") {
+    main_title <- "GAM-estimated smooth partial effect of age on CSO risk"
+    x_label    <- "Age (years)"
     order_smooth <- "s(age) + s(ultima_inmun_infecc_dias)"
   } else if (spline_var == "ultima_inmun_infecc_dias") {
+    main_title <- "GAM-estimated smooth partial effect of time since most recent immunization on CSO risk"
+    x_label    <- "Days from most recent immunization to SARS-CoV-2 infection"
     order_smooth <- "s(ultima_inmun_infecc_dias) + s(age)"
   } else {
     stop("spline_var debe ser 'age' o 'ultima_inmun_infecc_dias'")
   }
 
-  # Crear la fórmula completa como texto
+  y_label <- "Partial smooth effect on CSO risk (logit scale, transformed)"
+
+  # ── Model ──────────────────────────────────────────────────────────────────
+  print(paste("GAM partial effect —", spline_var, "|", regimen_label))
+  start_time <- Sys.time()
+  print(Sys.time())
+
   formula_text <- paste0(
     "clinical_event ~ ",
     order_smooth, " + ",
@@ -478,70 +373,82 @@ generate_gam_plot <- function(data, vaccine_variable, spline_var) {
     "insuficiencia_cardiaca + insuficiencia_renal_cronica + vih + cancer_hematologico + cancer_organo_solido"
   )
 
-  # Convertir a fórmula
-  formula_gam <- as.formula(formula_text)
-
-  # Ajustar modelo
   model <- gam(
-    formula = formula_gam,
-    data = data,
-    family = binomial(),
-    method = "REML"
+    formula = as.formula(formula_text),
+    data    = data,
+    family  = binomial(),
+    method  = "REML"
   )
-
   print(summary(model))
 
-  # # Imprimir los nudos para las variables spline
-  # print("Nudos para 'ultima_inmun_infecc_dias':")
-  # print(model$smooth[[1]]$xp)  # Puntos de predicción (equivalente a nudos)
-  #
-  # print("Knots si están definidos explícitamente:")
-  # print(model$smooth[[1]]$knots)
-  #
-  # print("Nombre de la variable spline:")
-  # print(model$smooth[[1]]$term)
-
-
-  # Función para extraer los datos del modelo GAM y calcular probabilidades
+  # ── Extract partial smooth ─────────────────────────────────────────────────
   extract_gam_data <- function(model, spline_var) {
-    gam_plot_data <- plot(model, term = spline_var, pages = 1)[[1]] # Use term argument
-    x <- gam_plot_data$x
-    fit <- gam_plot_data$fit
-    se <- gam_plot_data$se
-
-    prob <- exp(fit) / (1 + exp(fit)) * 100
-    lower <- exp(fit - 2 * se) / (1 + exp(fit - 2 * se)) * 100
-    upper <- exp(fit + 2 * se) / (1 + exp(fit + 2 * se)) * 100
-
-    data.frame(spline_var = x, probability = prob, lower = lower, upper = upper)
+    pd  <- plot(model, term = spline_var, pages = 1)[[1]]
+    fit <- pd$fit
+    se  <- pd$se
+    data.frame(
+      spline_var  = pd$x,
+      probability = plogis(fit) * 100,
+      lower       = plogis(fit - 1.96 * se) * 100,
+      upper       = plogis(fit + 1.96 * se) * 100
+    )
   }
 
-# Función para crear el gráfico GAM
-  create_gam_plot <- function(data, title, spline_var) {
+  # ── Plot ───────────────────────────────────────────────────────────────────
+  create_gam_plot <- function(data, main_title, regimen_label, x_label, y_label) {
     ggplot(data, aes(x = spline_var, y = probability)) +
-      geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3) +
-      geom_line() +
-      labs(title = title, x = spline_var, y = "Probability (%)") +
-      ylim(0, 100) +
-      theme_minimal()
+      geom_ribbon(aes(ymin = lower, ymax = upper),
+                  fill = "steelblue", alpha = 0.25) +
+      geom_line(color = "steelblue", linewidth = 0.9) +
+      scale_y_continuous(limits = c(0, 100), name = y_label) +
+      scale_x_continuous(name = x_label) +
+      labs(
+        title    = main_title,
+        subtitle = regimen_label,
+        caption  = NULL
+      ) +
+      theme_minimal(base_size = 11) +
+      theme(
+        plot.background   = element_rect(fill = "white", color = NA),
+        panel.background  = element_rect(fill = "white", color = NA),
+        plot.title        = element_text(size = 11, face = "bold", color = "black"),
+        plot.subtitle     = element_text(size = 10, color = "gray30"),
+        plot.caption      = element_text(size = 7,  color = "gray50", hjust = 0),
+        axis.title        = element_text(size = 10, color = "black"),
+        axis.text         = element_text(size = 9,  color = "black"),
+        panel.grid.major  = element_line(color = "gray90"),
+        panel.grid.minor  = element_blank()
+      )
   }
 
-  # Generar los datos para el gráfico y crear el gráfico
+  # ── Execute ────────────────────────────────────────────────────────────────
   plot_data <- extract_gam_data(model, spline_var)
-  plot <- create_gam_plot(plot_data, paste0("GAM Plot for ", spline_var, " in the model ", vaccine_variable), spline_var)
-  print(plot)
 
-  # Guardar el gráfico
+  p <- create_gam_plot(plot_data,
+                       main_title    = main_title,
+                       regimen_label = regimen_label,
+                       x_label       = x_label,
+                       y_label       = y_label)
+  print(p)
+
+  # ── Save ───────────────────────────────────────────────────────────────────
+  output_file <- paste0(
+    "~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_",
+    vaccine_variable, "_2spline_", spline_var, ".png"
+  )
+
   ggsave(
-    filename = paste0("~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_", vaccine_variable, "_2spline_", spline_var, ".png"),
-    plot = plot,
-    width = 8,
-    height = 6,
-    dpi = 300
+    filename = output_file,
+    plot     = p,
+    width    = 8,
+    height   = 6,
+    dpi      = 300
   )
 
   time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
   print(paste("Time to run:", time_elapsed, "minutes"))
+
+  invisible(list(model = model, plot = p, plot_data = plot_data))
 }
 
 ```
@@ -1072,17 +979,17 @@ create_gam_plot_with_breakpoints_and_histogram <- function(plot_data,
              color = "darkgreen", size = 3, fontface = "bold") +
     # Dual Y axes
     scale_y_continuous(
-      name = "Probability (%)",
+      name = "Partial smooth effect on CSO risk (logit scale, transformed)",
       limits = c(0, 100),
       sec.axis = sec_axis(
         trans = ~ . * max_freq / target_max_height,
-        name = "Frequency (% of sample)",
+        name = "Distribution of infections (% of regimen-specific sample)",
         breaks = seq(0, ceiling(max_freq), length.out = 6)
       )
-    ) + 
+    ) +
     scale_x_continuous(breaks = scales::breaks_width(50)) +
-    labs(title = paste(title, "- with Distribution"), 
-         x = smoothing_term) +
+    labs(title = title,
+         x = "Days from most recent immunization to SARS-CoV-2 infection") +
     theme_minimal() +
     theme(
       axis.title.y.right = element_text(color = "gray50"),
@@ -1096,25 +1003,66 @@ create_gam_plot_with_breakpoints_and_histogram <- function(plot_data,
 # MAIN FUNCTION
 # ============================================================================
 
-gam_analysis_with_segmentation <- function(data, outcome, smoothing_term, 
+gam_analysis_with_segmentation <- function(data, outcome, smoothing_term,
                                            predictors, vaccine_variable,
                                            min_points = 5,
                                            min_slope_ratio = 2.0,
                                            min_prob_change = 5,
                                            min_segment_length_pct = 0.05,
                                            histogram_bins = 30,
-                                           show_breakpoints = TRUE) { 
+                                           show_breakpoints = TRUE) {
+
   start_time <- Sys.time()
-  print(paste("Analysis of", smoothing_term))
-  
+
+  # --------------------------------------------------------------------
+  # Labels for manuscript-ready figures
+  # --------------------------------------------------------------------
+  vaccine_regimen_labels <- c(
+    vac_1shot = "One-dose vaccination regimen",
+    vac_2shot = "Two-dose vaccination regimen",
+    vac_3shot = "Three-dose vaccination regimen"
+  )
+
+  regimen_label <- unname(vaccine_regimen_labels[vaccine_variable])
+
+  if (is.na(regimen_label)) {
+    stop(
+      "Unknown vaccine_variable: ", vaccine_variable,
+      ". Expected one of: vac_1shot, vac_2shot, vac_3shot."
+    )
+  }
+
+  main_title <- "GAM-estimated smooth partial effect of time since most recent immunization on CSO risk"
+
+  x_axis_label <- "Days from most recent immunization to SARS-CoV-2 infection"
+  y_left_label <- "Partial smooth effect on CSO risk (logit scale, transformed)"
+  y_right_label <- "Distribution of infections (% of regimen-specific sample)"
+
+  plot_title <- paste(main_title, regimen_label, sep = "\n")
+
+  print(paste("Analysis of", smoothing_term, "-", regimen_label))
+
+  # --------------------------------------------------------------------
   # 1. Run GAM model
+  # --------------------------------------------------------------------
   print(paste("Running GAM model for:", outcome))
-  model <- run_gam(outcome, data, smoothing_term, predictors, vaccine_variable) 
-  plot_data <- extract_gam_data(model, smoothing_term) 
-  plot_data$outcome <- outcome 
-  
+
+  model <- run_gam(
+    outcome = outcome,
+    data = data,
+    smoothing_term = smoothing_term,
+    predictors = predictors,
+    vaccine_variable = vaccine_variable
+  )
+
+  plot_data <- extract_gam_data(model, smoothing_term)
+  plot_data$outcome <- outcome
+
+  # --------------------------------------------------------------------
   # 2. Apply piecewise linear segmentation
+  # --------------------------------------------------------------------
   print("Applying piecewise linear segmentation...")
+
   seg_result <- segment_curve(
     x = plot_data$smoothing_term,
     y = plot_data$probability,
@@ -1123,40 +1071,51 @@ gam_analysis_with_segmentation <- function(data, outcome, smoothing_term,
     min_prob_change = min_prob_change,
     min_segment_length_pct = min_segment_length_pct
   )
-  
+
+  # --------------------------------------------------------------------
   # 3. Display breakpoint table
+  # --------------------------------------------------------------------
   cat("\n")
   cat("======================================================================\n")
   cat("  BREAKPOINTS ON X-AXIS (Segmentation)\n")
   cat("======================================================================\n\n")
-  
+
   if (length(seg_result$change_points) > 0) {
+
     break_x <- plot_data$smoothing_term[seg_result$change_points]
     break_prob <- plot_data$probability[seg_result$change_points]
-    
+
     breaks_table <- data.frame(
-      Segment = 1:length(break_x),
+      Segment = seq_along(break_x),
       Breakpoint_X = round(break_x, 2),
       Probability_Y = round(break_prob, 2)
     )
-    names(breaks_table) <- c("Segment", 
-                             paste("Breakpoint at", smoothing_term),
-                             "Probability (%)")
+
+    names(breaks_table) <- c(
+      "Segment",
+      "Breakpoint, days since most recent immunization",
+      "Partial smooth effect on CSO risk (logit scale, transformed)"
+    )
+
     print(breaks_table, row.names = FALSE)
-    
+
     if (seg_result$filtering_info$kept_most_significant) {
       cat("\n  Note: Only the most significant breakpoint was kept.\n")
     }
+
   } else {
-    cat("  No breakpoints detected (curve is monotonic).\n")
+    cat("  No breakpoints detected.\n")
   }
-  
+
   cat("\n======================================================================\n\n")
-  
+
+  # --------------------------------------------------------------------
   # 4. Display filtering summary
+  # --------------------------------------------------------------------
   cat("======================================================================\n")
   cat("  FILTERING SUMMARY\n")
   cat("======================================================================\n")
+  cat("  Vaccination regimen:", regimen_label, "\n")
   cat("  Original breakpoints detected:", seg_result$filtering_info$original_breakpoints, "\n")
   cat("  Breakpoints after filtering:", seg_result$filtering_info$filtered_breakpoints, "\n")
   cat("  Number of segments:", seg_result$n_segments, "\n")
@@ -1165,53 +1124,93 @@ gam_analysis_with_segmentation <- function(data, outcome, smoothing_term,
   cat("    - min_prob_change:", min_prob_change, "%\n")
   cat("    - min_segment_length_pct:", min_segment_length_pct * 100, "%\n")
   cat("======================================================================\n\n")
-  
-  # 5. Create and print basic plot
-  gam_plot <- create_gam_plot(plot_data, outcome, smoothing_term)
+
+  # --------------------------------------------------------------------
+  # 5. Create and print basic GAM plot
+  # --------------------------------------------------------------------
+  gam_plot <- create_gam_plot(plot_data, outcome, smoothing_term) +
+    ggplot2::labs(
+      title = main_title,
+      subtitle = regimen_label,
+      x = x_axis_label,
+      y = y_left_label
+    )
+
   print(gam_plot)
-  
-  # 6. Create and save plot with histogram (and optionally breakpoints)
+
+  # --------------------------------------------------------------------
+  # 6. Create and save plot with histogram and optional breakpoints
+  # --------------------------------------------------------------------
   if (length(seg_result$change_points) > 0) {
     break_x <- plot_data$smoothing_term[seg_result$change_points]
   } else {
     break_x <- numeric(0)
   }
-  
+
   gam_plot_with_histogram <- create_gam_plot_with_breakpoints_and_histogram(
     plot_data = plot_data,
     raw_data = data,
     breakpoints = break_x,
-    title = outcome, 
+    title = plot_title,
     smoothing_term = smoothing_term,
     histogram_bins = histogram_bins,
     show_breakpoints = show_breakpoints
-  )
+  ) +
+    ggplot2::labs(
+      title = main_title,
+      subtitle = regimen_label,
+      x = x_axis_label,
+      y = y_left_label
+    )
+
   print(gam_plot_with_histogram)
-  
-  # Adjust filename based on whether breakpoints are shown
-  if (show_breakpoints) {
-    filename_suffix <- "_breakpoints"
-  } else {
-    filename_suffix <- "_distribution"
-  }
-  
-  ggsave(gam_plot_with_histogram,
-         filename = paste0("~/projects/vacunas_brands_2025/figures/GAM_plot/GAM_", 
-                           smoothing_term, "_", vaccine_variable, ".png"),
-         device = "jpeg", units = "px", dpi = 300, width = 3000, height = 2000)
-  
+
+  # Filename suffix according to breakpoint display
+  filename_suffix <- ifelse(show_breakpoints, "_breakpoints", "_distribution")
+
+  output_dir <- "~/projects/vacunas_brands_2025/figures/GAM_plot"
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+  output_file <- file.path(
+    output_dir,
+    paste0("GAM_", smoothing_term, "_", vaccine_variable, filename_suffix, ".png")
+  )
+
+  ggplot2::ggsave(
+    filename = output_file,
+    plot = gam_plot_with_histogram,
+    device = "png",
+    units = "px",
+    dpi = 300,
+    width = 3000,
+    height = 2000
+  )
+
+  # --------------------------------------------------------------------
   # 7. Print elapsed time
+  # --------------------------------------------------------------------
   time_elapsed <- round(difftime(Sys.time(), start_time, units = "mins"), 2)
+
   print(paste("Time to run:", time_elapsed, "minutes"))
   print(Sys.time())
-  
+
+  # --------------------------------------------------------------------
   # 8. Return results
+  # --------------------------------------------------------------------
   return(list(
     plot = gam_plot,
     plot_with_histogram = gam_plot_with_histogram,
     model = model,
     segmentation = seg_result,
-    plot_data = plot_data
+    plot_data = plot_data,
+    labels = list(
+      title = main_title,
+      subtitle = regimen_label,
+      x_axis = x_axis_label,
+      y_left = y_left_label,
+      y_right = y_right_label
+    ),
+    output_file = output_file
   ))
 }
 
@@ -1403,42 +1402,6 @@ log_reg_gam_1s(
   )
 
 ```
-
-# Forest plot - GAM - 2 splines (not used)
-
-## vac_1shot
-```{r}
-log_reg_gam_2s(
-  data = final_dataset, 
-  vaccine_variable = "vac_1shot", 
-  file_name = "vac1shot",
-  title = "1-shot Regimen - Splines for Age and Last Immunization", 
-  number_splines = 2)
-
-```
-
-## vac_2shot
-```{r}
-log_reg_gam_2s(
-  data = final_dataset, 
-  vaccine_variable = "vac_2shot",
-  file_name = "vac2shot",
-  title = "2-shot Regimen - Splines for Age and Last Immunization", 
-  number_splines = 2)
-
-```
-
-## vac_3shot
-```{r}
-log_reg_gam_2s(
-  data = final_dataset, 
-  vaccine_variable = "vac_3shot",
-  file_name = "vac3shot",  
-  title = "3-shot Regimen - Splines for Age and Last Immunization", 
-  number_splines = 2)
-
-```
-
 
 # GAM Plot of last immunization
 
